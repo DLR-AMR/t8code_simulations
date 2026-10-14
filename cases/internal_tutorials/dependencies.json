@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    {
+      "name": "t8code",
+      "url": "https://github.com/DLR-AMR/t8code.git",
+      "commit": "v4.0.0-26.10"
+    }
+  ]
+}

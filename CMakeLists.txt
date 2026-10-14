@@ -7,7 +7,7 @@ project(t8code_simulations VERSION 0.0.1)
 set(RUN_CASE "UNSET" CACHE STRING "Example case to run")
 set_property(CACHE RUN_CASE PROPERTY STRINGS
     HELLO_WORLD
-    ANOTHER_EXAMPLE
+    INTERNAL_TUTORIALS
 )
 
 # Interpret the read-in value of RUN_CASE:
@@ -15,8 +15,8 @@ set_property(CACHE RUN_CASE PROPERTY STRINGS
 # - Else throw an error.
 if(RUN_CASE STREQUAL "HELLO_WORLD")
     set(CASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cases/hello_world")
-elseif(RUN_CASE STREQUAL "ANOTHER_EXAMPLE")
-    set(CASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cases/another_example")
+elseif(RUN_CASE STREQUAL "INTERNAL_TUTORIALS")
+    set(CASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cases/internal_tutorials")
 else()
     message(FATAL_ERROR "Invalid or missing RUN_CASE='${RUN_CASE}'. ")
 endif()
