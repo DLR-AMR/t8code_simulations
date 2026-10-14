@@ -1,6 +1,8 @@
 # t8code_simulations
 Easily reproduce t8code simulations and usecases
 
+**NOTE: THIS REPOSITORY IS STILL WORK IN PROGRESS**
+
 ## "Protocol" of inital discussion
 
 We agreed on the follwoing main points:
