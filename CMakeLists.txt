@@ -41,10 +41,8 @@ execute_process(
 )
 
 # Check whether running the case was successful.
-message(STATUS "##########################################")
 if(result EQUAL 0)
     message(STATUS "Successully ran case '${RUN_CASE}'.")
 else()
     message(FATAL_ERROR "Running '${RUN_CASE}' failed: ${result}")
 endif()
-message(STATUS "##########################################")
