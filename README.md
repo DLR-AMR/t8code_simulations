@@ -23,7 +23,7 @@ cmake . -DCASE_DIR=./cases/hello_world
 
 ## Technical aspects
 
-Our reference hardware is the AMR teamserver. We do not guarantee it will run on any other system, but to keep adoption simple, all teamserver-specific settings are encapsulated in a separate (case-level) script.
+Our reference hardware is the AMR teamserver - An Ubuntu 24.04 system at DLR. We do not guarantee it will run on any other system, but to keep adoption simple, all teamserver-specific settings are encapsulated in a separate (case-level) script.
 
 
 ## Adding a new case
@@ -56,7 +56,7 @@ Next, set up the case by adding the following files:
 - `run.sh`:
   * This is the main workflow script of the case considered.
   * It is automatically called from CMake after fetching the dependencies and preparing the Teamserver.
-  * The run script i ssupposed to run all steps required to reproduce the case results in one go.
+  * The run script is supposed to run all steps required to reproduce the case results in one go.
   * A typical structure could be:
     + configure using cmake
     + build with make or ninja
