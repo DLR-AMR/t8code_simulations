@@ -62,9 +62,11 @@ function(fetch_case_files manifest)
 
             # Check if download was successful
             list(GET download_status 0 download_result)
+            list(GET download_status 1 download_message)
+
             if(NOT download_result EQUAL 0)
                 message(FATAL_ERROR
-                    "Failed to download file: ${filename} from ${url}")
+                    "Failed to download file: ${filename} from ${url}: ${download_message}")
             endif()
 
             message(STATUS "Successfully downloaded: ${filename}")
