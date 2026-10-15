@@ -3,18 +3,65 @@ Easily reproduce t8code simulations and usecases
 
 **NOTE: THIS REPOSITORY IS STILL WORK IN PROGRESS**
 
-## "Protocol" of inital discussion
+The goal of this repostory is to make it very simple to reproduce the results of any t8code simulations stored here, e.g., to reproducce the results of a thesis or paper.
 
-We agreed on the follwoing main points:
+## Structure of this repository
 
-- The key objectives are:
-  1. It should be **easy to contribute** by adding a new example case;
-  2. It should be **easy to reproduce** the results of an existing example.
-- We use the memilio-simulations repo as inspiration and orientation.
-- Our reference system is the AMR Teamserver. Anything beyond that is nice-to-have, but we do not guarantee it will work on other systems.
-- One top-level CMake script will trigger the specific example, chosen via CMake options.
-- To handle the exact versions of t8code and external libraries, such as Trixi, we rely on CMake FetchContent. For this we provide a unified framework, such that a contributor can easily define which commit hash of which repository is used.
-- For the main workflow of each example (typically configuring, building, running the simulation and perfomring some post-processing), we do not prescribe a fixed structure to maximize flexibility; instead, we just provide one main script, say `run_example.sh`, per folder that produces the results.
-- It will probably be useful to allow for some "revisions" of the cases, i.e., to update the commit hashes to newer ones once they are ensured to work properly, **WITHOUT** overwriting the original case, as it might be coupled to some publication.
-- For some software packages involved, e.g., Paraview, we can simply state the version used and/or the Teamserver module, without using FetchContent etc.
-- Note on keeping the folders up-to-date: For now, we explicitly refrain from using commit hashes like "latest" or branch names, because ensuring the examples always stay functional for the current branch is only possible through a dedicated automated testing procedure we do not want to implement as of yet.
+The process of running any of the provided cases is orchestrated by a top-level CMake workflow. Note that it is independent from the CMake config of the cases themselves. It is primarily used to
+* check the given case directory for completeness,
+* automatically download the dependencies of a case via CMake FetchContent,
+* and execute the case's run.sh script, which is responsible for all case-specific workflows.
+
+## How to run an existing case
+
+You can run an existing case via the top-level CMake script. The main argument is `-DCASE_DIR`, which should be the subfolder of a case.
+For example,
+```
+cmake . -DCASE_DIR=./cases/hello_world
+```
+
+
+## Technical aspects
+
+Our reference hardware is the AMR teamserver. We do not guarantee it will run on any other system, but to keep adoption simple, all teamserver-specific settings are encapsulated in a separate (case-level) script.
+
+
+## Adding a new case
+
+To add a new case, you first have to pick a name `$CASE_NAME` and then create a new folder `cases/$CASE_NAME`.
+Next, set up the case by adding the following files:
+
+- `README.md`:
+  * The case's README should contain all relevant information on the case; for example:
+    + From which paper or thesis stems this case?
+    + which software packages does it couple? 
+    + What does it simulate?
+    + Which other dependencies are there? E.g., specific ParaView version required to visualize the ouput or a Python version to plot the results.
+    + ...
+- `dependencies.json`:
+  * This file is parsed by the top-level CMake execution to automatically fetch all dependencies that have to be built to run the considered case.
+  * It specifies (1.) which repositories and should be automatically fetched when running the example and (2.) their exact state, specified via a commit hash or TAG.
+  * For each repo, a name, an url and a commit have to be provided.
+  * See `cases/hello_world/dependencies.json` for an example.
+  * Note that you should only add those dependencies here that we want to build ourselves, such as, e.g., t8code or MESSy; other dependencies on some pre-installed libraries should be handled by `prepare_on_teamserver.sh` and documented in the `README.md`.
+  * The fetched repositories can be found in a subfolder `libs` within your case directory; more precisely, fetching a repository `$SOME_REPO` will create the subfolders:
+    + `$SOME_REPO-src`: The repo's clone.
+    + `$SOME_REPO-build`: An empty folder for building the repo.
+    + `$SOME_REPO-subbuild`: An empty folder for sub-builds.
+- `prepare_on_teamserver.sh`:
+  * This script is executed before starting the actual building and running of the case.
+  * Since we rely on the AMR Teamserver as reference hardware, this script does everything Teamserver-specific required to run the case; in particular, this means loading the correct modules.
+  * Encapsulating the hardware-specific steps in this script makes it simpler to run the case on another system.
+  * Typically, this script should at least contain a `module purge` and loading some t8code module.
+- `run.sh`:
+  * This is the main workflow script of the case considered.
+  * It is automatically called from CMake after fetching the dependencies and preparing the Teamserver.
+  * The run script i ssupposed to run all steps required to reproduce the case results in one go.
+  * A typical structure could be:
+    + configure using cmake
+    + build with make or ninja
+    + run the simulation
+    + do some post-processing.
+  * However, we intentionally do not prescribe a fixed corset but instead provide the freedom to deviate from this standard outline.
+- `clean.sh`:
+  * It is recommended, though not strictly required, to add this shell script to remove all build artifacts to reset the case folder content.
