@@ -8,7 +8,7 @@ Easily reproduce t8code simulations and usecases
 We agreed on the follwoing main points:
 
 - The key objectives are:
-  1. It should be **easy to conrtibute** by adding a new example case;
+  1. It should be **easy to contribute** by adding a new example case;
   2. It should be **easy to reproduce** the results of an existing example.
 - We use the memilio-simulations repo as inspiration and orientation.
 - Our reference system is the AMR Teamserver. Anything beyond that is nice-to-have, but we do not guarantee it will work on other systems.
