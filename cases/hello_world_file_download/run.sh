@@ -8,10 +8,26 @@ log_msg "\n#################################################"
 log_msg "#### Running case: Hello World File Download ####"
 log_msg "#################################################\n"
 
-FILE="t8data_helloworld.txt"
+FILE="data/t8data_helloworld.txt"
 
 if [ -f $FILE ]
-    echo $FILE
+then
+    echo "Pasting file contents:"
+
+
+log_msg "\n#################################################"
+log_msg "#### Pasting file contents                   ####"
+log_msg "#################################################\n"
+
+    echo
+    cat $FILE
+    echo
+
+
+log_msg "\n#################################################"
+log_msg "#### You should have seen                    ####"
+log_msg "#### \"Hello World from t8data!\"              ####"
+log_msg "#################################################\n"
 else
     echo "Error: Could not find file ${FILE}."
     exit 1
