@@ -9,6 +9,11 @@ set(REQUIRED_FILES_PER_CASE
     "run.sh"
 )
 
+# Optional file for downloading additional files
+set(OPTIONAL_FILES_PER_CASE
+    "download_files.json"
+)
+
 # CASE_DIR is the main argument of this CMake script. It specifies the case
 # we want to run by giving its case folder.
 set(CASE_DIR "UNSET" CACHE STRING "Example case to run")
@@ -45,6 +50,15 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchCaseDependencies.cmake")
 fetch_case_dependencies(
     "${CASE_DIR}/dependencies.json"
 )
+
+# Download individual files specified in download_files.json after dependencies are installed
+if(EXISTS "${CASE_DIR}/download_files.json")
+    message(STATUS "Downloading files specified in '${CASE_DIR}'/download_files.json ")
+    include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchCaseFiles.cmake")
+    fetch_case_files(
+        "${CASE_DIR}/download_files.json"
+    )
+endif()
 
 # Prepare the AMR-Teamserver-related settings like loading modules etc.
 execute_process(
