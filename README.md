@@ -24,6 +24,7 @@ cmake . -DCASE_DIR=./cases/hello_world
 ## Technical aspects
 
 Our reference hardware is the AMR teamserver - An Ubuntu 24.04 system at DLR. We do not guarantee it will run on any other system, but to keep adoption simple, all teamserver-specific settings are encapsulated in a separate (case-level) script.
+If this script fails, running the case is aborted. To run a case on another system, pass `-DSKIP_TEAMSERVER_PREPARE=ON` and provide the dependencies listed in the case's `README.md` yourself.
 
 
 ## Adding a new case
