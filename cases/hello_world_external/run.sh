@@ -24,7 +24,9 @@ cd libs/t8code-build
 log_msg "--------------------------------------------------"
 log_msg "(1.a) Run cmake"
 log_msg "--------------------------------------------------"
-cmake ../t8code-src/ -GNinja -DCMAKE_INSTALL_PREFIX=$CASE_INSTALL_DIR
+# Build t8code, libsc, and p4est as static libraries, so the executables cannot pick up
+# other installations of them at runtime, e.g., via LD_LIBRARY_PATH.
+cmake ../t8code-src/ -GNinja -DCMAKE_INSTALL_PREFIX=$CASE_INSTALL_DIR -DT8CODE_BUILD_AS_SHARED_LIBRARY=OFF -DBUILD_SHARED_LIBS=OFF
 
 log_msg "--------------------------------------------------"
 log_msg "(1.b) Run ninja"
