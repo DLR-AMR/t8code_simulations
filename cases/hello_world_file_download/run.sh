@@ -12,11 +12,9 @@ FILE="data/t8data_helloworld.txt"
 
 if [ -f $FILE ]
 then
-    echo "Pasting file contents:"
-
 
 log_msg "\n#################################################"
-log_msg "#### Pasting file contents                   ####"
+log_msg "############  Pasting file contents  ############"
 log_msg "#################################################\n"
 
     echo
@@ -25,8 +23,8 @@ log_msg "#################################################\n"
 
 
 log_msg "\n#################################################"
-log_msg "#### You should have seen                    ####"
-log_msg "#### \"Hello World from t8data!\"              ####"
+log_msg "########## You should have seen        ##########"
+log_msg "########## \"Hello World from t8data!\"  ##########"
 log_msg "#################################################\n"
 else
     echo "Error: Could not find file ${FILE}."

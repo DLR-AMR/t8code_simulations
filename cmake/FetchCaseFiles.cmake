@@ -51,25 +51,29 @@ function(fetch_case_files manifest)
             message(STATUS
                 "Downloading file: ${filename} from ${url} to ${target_dir}")
 
-            # Use file(DOWNLOAD) to fetch the file
-            file(DOWNLOAD
-                "${url}"
-                "${target_dir}/${filename}"
-                SHOW_PROGRESS
-                TIMEOUT 300
-                STATUS download_status
-            )
+            if(EXISTS "${target_dir}/${filename}")
+                message (STATUS "File ${target_dir}/${filename} already exists, skipping download.")
+            else()
+                # Use file(DOWNLOAD) to fetch the file
+                file(DOWNLOAD
+                    "${url}"
+                    "${target_dir}/${filename}"
+                    SHOW_PROGRESS
+                    TIMEOUT 300
+                    STATUS download_status
+                )
 
-            # Check if download was successful
-            list(GET download_status 0 download_result)
-            list(GET download_status 1 download_message)
+                # Check if download was successful
+                list(GET download_status 0 download_result)
+                list(GET download_status 1 download_message)
 
-            if(NOT download_result EQUAL 0)
-                message(FATAL_ERROR
-                    "Failed to download file: ${filename} from ${url}: ${download_message}")
+                if(NOT download_result EQUAL 0)
+                    message(FATAL_ERROR
+                        "Failed to download file: ${filename} from ${url}: ${download_message}")
+                endif()
+
+                message(STATUS "Successfully downloaded: ${filename} to ${target_dir}/${filename}")
             endif()
-
-            message(STATUS "Successfully downloaded: ${filename}")
         endforeach()
     endif()
 endfunction()

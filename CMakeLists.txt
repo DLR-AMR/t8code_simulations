@@ -43,14 +43,6 @@ endif()
 # message(STATUS "Selected case: ${RUN_CASE}")
 message(STATUS "Case directory: ${CASE_DIR}")
 
-# Fetch case dependencies, specififed in case directory.
-set(FETCHCONTENT_BASE_DIR "${CASE_DIR}/libs")
-message(STATUS "Fetching case dependencies speficied in '${CASE_DIR}'/dependencies.json ")
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchCaseDependencies.cmake")
-fetch_case_dependencies(
-    "${CASE_DIR}/dependencies.json"
-)
-
 # Download individual files specified in download_files.json after dependencies are installed
 if(EXISTS "${CASE_DIR}/download_files.json")
     message(STATUS "Downloading files specified in '${CASE_DIR}'/download_files.json ")
@@ -59,6 +51,14 @@ if(EXISTS "${CASE_DIR}/download_files.json")
         "${CASE_DIR}/download_files.json"
     )
 endif()
+
+# Fetch case dependencies, specififed in case directory.
+set(FETCHCONTENT_BASE_DIR "${CASE_DIR}/libs")
+message(STATUS "Fetching case dependencies speficied in '${CASE_DIR}'/dependencies.json ")
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchCaseDependencies.cmake")
+fetch_case_dependencies(
+    "${CASE_DIR}/dependencies.json"
+)
 
 # Prepare the AMR-Teamserver-related settings like loading modules etc.
 execute_process(
