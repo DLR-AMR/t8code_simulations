@@ -13,6 +13,10 @@ set(REQUIRED_FILES_PER_CASE
 # we want to run by giving its case folder.
 set(CASE_DIR "UNSET" CACHE STRING "Example case to run")
 
+# On systems other than the AMR Teamserver, the Teamserver-specific preparation
+# (e.g., loading modules) cannot succeed and has to be skipped explicitly.
+option(SKIP_TEAMSERVER_PREPARE "Skip the case's prepare_on_teamserver.sh" OFF)
+
 # Simple sanity checks for chosen CASE_DIR
 if(CASE_DIR STREQUAL "UNSET")
   message(FATAL_ERROR "Missing -DCASE_DIR argument!")
@@ -46,16 +50,19 @@ fetch_case_dependencies(
     "${CASE_DIR}/dependencies.json"
 )
 
-# Prepare the AMR-Teamserver-related settings like loading modules etc.
+# Prepare the AMR-Teamserver-related settings like loading modules etc. and run
+# the main script of the chosen folder. The preparation script is sourced in the
+# same shell that starts run.sh, so the environment it sets up is passed on to run.sh;
+# running it in a separate process would discard it. With 'bash -e', a failing
+# command in the preparation script aborts the case.
+if(SKIP_TEAMSERVER_PREPARE)
+    message(STATUS "Skipping prepare_on_teamserver.sh (SKIP_TEAMSERVER_PREPARE=ON).")
+    set(CASE_COMMAND "bash ./run.sh")
+else()
+    set(CASE_COMMAND "source ./prepare_on_teamserver.sh; bash ./run.sh")
+endif()
 execute_process(
-    COMMAND bash prepare_on_teamserver.sh
-    WORKING_DIRECTORY "${CASE_DIR}"
-    RESULT_VARIABLE result
-)
-
-# Run the main script of the chosen folder.
-execute_process(
-    COMMAND bash run.sh
+    COMMAND bash -e -c "${CASE_COMMAND}"
     WORKING_DIRECTORY "${CASE_DIR}"
     RESULT_VARIABLE result
 )
@@ -63,6 +70,13 @@ execute_process(
 # Check whether running the case was successful.
 if(result EQUAL 0)
     message(STATUS "Successfully ran case '${CASE_DIR}'.")
-else()
+elseif(SKIP_TEAMSERVER_PREPARE)
     message(FATAL_ERROR "Running '${CASE_DIR}' failed: ${result}")
+else()
+    message(FATAL_ERROR
+        "Running '${CASE_DIR}' failed: ${result}\n"
+        "If prepare_on_teamserver.sh failed because you are not running on the AMR Teamserver, "
+        "pass -DSKIP_TEAMSERVER_PREPARE=ON and provide the case's dependencies yourself "
+        "(see the case's README.md)."
+    )
 endif()
