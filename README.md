@@ -76,7 +76,7 @@ Next, set up the case by adding the following files:
   '-DCMAKE_TLS_CAINFO=/etc/ssl/certs/ca-certificates.crt'
   to the initial CMake call.
 - `prepare_on_teamserver.sh`:
-  * This script is executed before starting the actual building and running of the case.
+  * This script is sourced in the same shell that afterwards starts `run.sh`, so the environment it sets up (e.g., loaded modules) is available in `run.sh`. Since it is sourced, it must not call `exit`.
   * Since we rely on the AMR Teamserver as reference hardware, this script does everything Teamserver-specific required to run the case; in particular, this means loading the correct modules.
   * Encapsulating the hardware-specific steps in this script makes it simpler to run the case on another system.
   * Typically, this script should at least contain a `module purge` and loading some t8code module.
