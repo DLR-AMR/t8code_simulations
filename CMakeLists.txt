@@ -62,7 +62,7 @@ execute_process(
 
 # Check whether running the case was successful.
 if(result EQUAL 0)
-    message(STATUS "Successully ran case '${RUN_CASE}'.")
+    message(STATUS "Successfully ran case '${CASE_DIR}'.")
 else()
-    message(FATAL_ERROR "Running '${RUN_CASE}' failed: ${result}")
+    message(FATAL_ERROR "Running '${CASE_DIR}' failed: ${result}")
 endif()
