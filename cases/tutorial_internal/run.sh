@@ -11,6 +11,11 @@ log_msg "##################################################\n"
 # Export install directory
 export CASE_INSTALL_DIR=$(pwd)/install
 
+# Do not pull in the deprecated OpenMPI C++ bindings via mpi.h. Otherwise, C++ code
+# including mpi.h has to be linked against libmpi_cxx, which only the mpicxx wrapper does.
+# The define has no effect without MPI or with other MPI implementations.
+export CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }-DOMPI_SKIP_MPICXX"
+
 log_msg "##################################################"
 log_msg "### Step 0: Move t8code out of libs subfolder"
 log_msg "##################################################"
