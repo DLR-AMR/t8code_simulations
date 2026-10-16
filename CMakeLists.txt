@@ -13,6 +13,10 @@ set(REQUIRED_FILES_PER_CASE
 # we want to run by giving its case folder.
 set(CASE_DIR "UNSET" CACHE STRING "Example case to run")
 
+# On systems other than the AMR Teamserver, the Teamserver-specific preparation
+# (e.g., loading modules) cannot succeed and has to be skipped explicitly.
+option(SKIP_TEAMSERVER_PREPARE "Skip the case's prepare_on_teamserver.sh" OFF)
+
 # Simple sanity checks for chosen CASE_DIR
 if(CASE_DIR STREQUAL "UNSET")
   message(FATAL_ERROR "Missing -DCASE_DIR argument!")
@@ -47,11 +51,22 @@ fetch_case_dependencies(
 )
 
 # Prepare the AMR-Teamserver-related settings like loading modules etc.
-execute_process(
-    COMMAND bash prepare_on_teamserver.sh
-    WORKING_DIRECTORY "${CASE_DIR}"
-    RESULT_VARIABLE result
-)
+if(SKIP_TEAMSERVER_PREPARE)
+    message(STATUS "Skipping prepare_on_teamserver.sh (SKIP_TEAMSERVER_PREPARE=ON).")
+else()
+    execute_process(
+        COMMAND bash prepare_on_teamserver.sh
+        WORKING_DIRECTORY "${CASE_DIR}"
+        RESULT_VARIABLE prepare_result
+    )
+    if(NOT prepare_result EQUAL 0)
+        message(FATAL_ERROR
+            "Preparing '${CASE_DIR}' failed: ${prepare_result}\n"
+            "When not running on the AMR Teamserver, pass -DSKIP_TEAMSERVER_PREPARE=ON "
+            "and provide the case's dependencies yourself (see the case's README.md)."
+        )
+    endif()
+endif()
 
 # Run the main script of the chosen folder.
 execute_process(
