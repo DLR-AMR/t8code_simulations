@@ -1,0 +1,14 @@
+{
+  "dependencies": [
+    {
+      "name": "t8code",
+      "url": "https://github.com/DLR-AMR/t8code.git",
+      "commit": "e90aa8f"
+    },
+    {
+      "name": "png2mesh",
+      "url": "https://github.com/dlr-amr/png2mesh.git",
+      "commit": "a522e4f"
+    }
+  ]
+}

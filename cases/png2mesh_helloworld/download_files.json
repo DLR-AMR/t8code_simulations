@@ -1,0 +1,9 @@
+{
+  "files": [
+    {
+      "url": "https://github.com/DLR-AMR/t8data/raw/435b9b5bc4d424a7a41b10f0c45a64c2cdac9f1a/png2mesh/t8code_simulations/t8code_simulations.png",
+      "filename": "t8code_simulations.png",
+      "target_path": "input"
+    }
+  ]
+}
