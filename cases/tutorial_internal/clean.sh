@@ -19,6 +19,8 @@ rm -rf build
 rm -rf install
 rm -rf libs
 rm -rf t8code
+rm airfoil_windtunnel_hexahedra.brep
+rm airfoil_windtunnel_hexahedra.msh
 
 set +x
 
