@@ -69,7 +69,10 @@ function(fetch_case_files manifest)
 
                 if(NOT download_result EQUAL 0)
                     message(FATAL_ERROR
-                        "Failed to download file: ${filename} from ${url}: ${download_message}")
+                        "Failed to download file: ${filename} from ${url}: ${download_message}.\n"
+                        "Invalid certificates or unsupported protocol?\n"
+                        "Try pointing CMake to your ssl certificates.\n"
+                        "On the Teamserver add '-DCMAKE_TLS_CAINFO=/etc/ssl/certs/ca-certificates.crt'.")
                 endif()
 
                 message(STATUS "Successfully downloaded: ${filename} to ${target_dir}/${filename}")

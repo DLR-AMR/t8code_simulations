@@ -71,9 +71,9 @@ Next, set up the case by adding the following files:
     ```
   * The files will be downloaded after the dependencies have been fetched and installed.
   * Should you get download errors because of invalid certificates, you
-  may need to point CMake to your ssl certificats. On the Teamserver adding
+  may need to point CMake to your ssl certificates. On the Teamserver add
   '-DCMAKE_TLS_CAINFO=/etc/ssl/certs/ca-certificates.crt'
-  to the CMake calls resolves this.
+  to the initial CMake call.
 - `prepare_on_teamserver.sh`:
   * This script is executed before starting the actual building and running of the case.
   * Since we rely on the AMR Teamserver as reference hardware, this script does everything Teamserver-specific required to run the case; in particular, this means loading the correct modules.
