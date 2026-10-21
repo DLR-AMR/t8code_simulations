@@ -34,13 +34,13 @@ Next, set up the case by adding the following files:
 - `README.md`:
   * The case's README should contain all relevant information on the case; for example:
     + From which paper or thesis stems this case?
-    + which software packages does it couple? 
+    + Which software packages does it couple? 
     + What does it simulate?
     + Which other dependencies are there? E.g., specific ParaView version required to visualize the ouput or a Python version to plot the results.
     + ...
 - `dependencies.json`:
   * This file is parsed by the top-level CMake execution to automatically fetch all dependencies that have to be built to run the considered case.
-  * It specifies (1.) which repositories and should be automatically fetched when running the example and (2.) their exact state, specified via a commit hash or TAG.
+  * It specifies (1.) which repositories should be automatically fetched when running the example and (2.) their exact state, specified via a commit hash or TAG.
   * For each repo, a name, an url and a commit have to be provided.
   * See `cases/hello_world/dependencies.json` for an example.
   * Note that you should only add those dependencies here that we want to build ourselves, such as, e.g., t8code or MESSy; other dependencies on some pre-installed libraries should be handled by `prepare_on_teamserver.sh` and documented in the `README.md`.
