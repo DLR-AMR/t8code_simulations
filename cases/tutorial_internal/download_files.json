@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+    "url": "https://github.com/DLR-AMR/t8data/raw/9fcd9b9d5ac7e07e8a82cea28377e43fb2d1b90e/geometries/airfoil_windtunnel/airfoil_windtunnel_hexahedra.brep",
+    "filename": "airfoil_windtunnel_hexahedra.brep",
+    "target_path": "."
+    },
+    {
+    "url": "https://github.com/DLR-AMR/t8data/raw/9fcd9b9d5ac7e07e8a82cea28377e43fb2d1b90e/geometries/airfoil_windtunnel/airfoil_windtunnel_hexahedra.msh",
+    "filename": "airfoil_windtunnel_hexahedra.msh",
+    "target_path": "."
+    }
+  ]
+} 

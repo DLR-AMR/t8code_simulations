@@ -21,6 +21,13 @@ The `run.sh` script executes the following main steps:
 
 `t8code/t8code-development-gcc13-mpich-with-vtk-9.1-and-occ-7.6.0`
 
+### Downloaded files
+
+* airfoil_windtunnel_hexahedra.brep
+* airfoil_windtunnel_hexahedra.msh
+
+from [t8data repository](https://github.com/DLR-AMR/t8data/tree/9fcd9b9d5ac7e07e8a82cea28377e43fb2d1b90e/geometries/airfoil_windtunnel).
+
 ### Other dependencies
 
 * OpenCASCADE, version 7.6.0
