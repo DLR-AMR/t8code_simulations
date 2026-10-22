@@ -48,6 +48,32 @@ Next, set up the case by adding the following files:
     + `$SOME_REPO-src`: The repo's clone.
     + `$SOME_REPO-build`: An empty folder for building the repo.
     + `$SOME_REPO-subbuild`: An empty folder for sub-builds.
+- `download_files.json` (optional):
+  * This optional file allows you to specify individual files that should be downloaded after the dependencies have been installed.
+  * Each file entry requires a `url` (the URL to download from) and a `filename` (the name to save the file as).
+  * Optionally, you can specify a `target_path` to control where the file is saved (defaults to the case directory).
+  * Files are downloaded using CMake's `file(DOWNLOAD)` command, which supports HTTP, HTTPS, and FTP URLs.
+  * Example:
+    ```json
+    {
+      "files": [
+        {
+          "url": "https://example.com/data/mesh.vtu",
+          "filename": "input_mesh.vtu",
+          "target_path": "data"
+        },
+        {
+          "url": "https://example.com/config/params.yaml",
+          "filename": "parameters.yaml"
+        }
+      ]
+    }
+    ```
+  * The files will be downloaded after the dependencies have been fetched and installed.
+  * Should you get download errors because of invalid certificates, you
+  may need to point CMake to your ssl certificates. On the Teamserver add
+  '-DCMAKE_TLS_CAINFO=/etc/ssl/certs/ca-certificates.crt'
+  to the initial CMake call.
 - `prepare_on_teamserver.sh`:
   * This script is executed before starting the actual building and running of the case.
   * Since we rely on the AMR Teamserver as reference hardware, this script does everything Teamserver-specific required to run the case; in particular, this means loading the correct modules.

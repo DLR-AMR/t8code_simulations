@@ -1,0 +1,9 @@
+{
+  "files": [
+    {
+    "url": "https://github.com/DLR-AMR/t8data/raw/9fcd9b9d5ac7e07e8a82cea28377e43fb2d1b90e/t8data_helloworld.txt",
+    "filename": "t8data_helloworld.txt",
+    "target_path": "data"
+    }
+  ]
+}
