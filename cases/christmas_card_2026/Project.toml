@@ -1,0 +1,12 @@
+[deps]
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+MPIPreferences = "3da0fdf6-3ccc-4f1b-acd9-58baa6c99267"
+OrdinaryDiffEqLowStorageRK = "b0944070-b475-4768-8dec-fb6eb410534d"
+P4est = "7d669430-f675-4ae7-b43e-fab78ec5a902"
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+T8code = "d0cc0030-9a40-4274-8435-baadcfd54fa1"
+Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
+
+[sources]
+T8code = {path = "libs/t8code_jl-src"}
+Trixi = {path = "libs/trixi_jl-src"}
