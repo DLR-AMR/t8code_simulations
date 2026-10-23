@@ -20,7 +20,12 @@ option(SKIP_TEAMSERVER_PREPARE "Skip the case's prepare_on_teamserver.sh" OFF)
 # Simple sanity checks for chosen CASE_DIR
 if(CASE_DIR STREQUAL "UNSET")
   message(FATAL_ERROR "Missing -DCASE_DIR argument!")
-elseif(NOT EXISTS "${CASE_DIR}")
+endif()
+
+# Interpret a relative CASE_DIR relative to the repository root, independent of the build directory.
+get_filename_component(CASE_DIR "${CASE_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+
+if(NOT EXISTS "${CASE_DIR}")
   message(FATAL_ERROR "The case directory CASE_DIR='${CASE_DIR}' does not exist!")
 endif()
 
@@ -43,7 +48,9 @@ endif()
 message(STATUS "Case directory: ${CASE_DIR}")
 
 # Fetch case dependencies, specififed in case directory.
-set(FETCHCONTENT_BASE_DIR "${CASE_DIR}/libs")
+# Has to be a forced cache entry: FetchContent defines its own cached default
+# (<build>/_deps), which would otherwise override a normal variable on the first configure.
+set(FETCHCONTENT_BASE_DIR "${CASE_DIR}/libs" CACHE PATH "Directory into which the case dependencies are fetched" FORCE)
 message(STATUS "Fetching case dependencies speficied in '${CASE_DIR}'/dependencies.json ")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchCaseDependencies.cmake")
 fetch_case_dependencies(
