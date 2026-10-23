@@ -1,0 +1,15 @@
+# Top-level CMake build directory
+/build/
+
+# Artifacts of the cases (removed by each case's clean.sh)
+/cases/*/build/
+/cases/*/install/
+/cases/*/libs/
+
+# tutorial_internal: t8code moved out of libs/
+/cases/tutorial_internal/t8code/
+
+# Julia depot, resolved package versions, machine-specific preferences
+/cases/*/julia_depot/
+/cases/*/Manifest.toml
+/cases/*/LocalPreferences.toml
