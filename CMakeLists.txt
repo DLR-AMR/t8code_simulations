@@ -64,7 +64,7 @@ fetch_case_dependencies(
 # running it in a separate process would discard it. With 'bash -e', a failing
 # command in the preparation script aborts the case.
 if(ON_TEAMSERVER)
-    set(CASE_COMMAND "source ./prepare_on_teamserver.sh; bash ./run.sh")
+    set(CASE_COMMAND "source ./prepare_on_teamserver.sh && bash ./run.sh")
 else()
     message(STATUS "Skipping prepare_on_teamserver.sh (ON_TEAMSERVER=OFF).")
     set(CASE_COMMAND "bash ./run.sh")
