@@ -17,11 +17,13 @@ is offloaded to the GPU with OpenMP `target`.
   middle of the run and a ParaView state file (`.pvsm`) to open the same scene in the ParaView GUI.
 
 > [!IMPORTANT]
-> **The original data were computed on a GPU, this case computes them on the CPU.**
-> The case builds the advection example without offloading (`OFFLOAD_ARCH=NONE`), so it runs on the Teamserver,
-> which has no usable GPU. The CPU run reproduces the GPU data exactly: same element counts in every output step,
-> identical solution values in the VTU files (checked for output step 59), and an identical rendered image of output step 30.
-> See [Original data: GPU run on aac7](#original-data-gpu-run-on-aac7) for how the original data were produced.
+> **The data of the video were computed on the CPU, with 20 MPI ranks.**
+> The case does the same: it builds the advection example without offloading (`OFFLOAD_ARCH=NONE`), so it runs on
+> the Teamserver, which has no usable GPU. The case run reproduces the original data of the video exactly: same element
+> counts in every output step, identical solution values in the VTU files (checked for output step 59), and an
+> identical rendered image of output step 30.
+> The same code also runs on a GPU. See [GPU run on aac7](#gpu-run-on-aac7) for a GPU run of this example
+> (with different parameters).
 
 ## What the video shows
 
@@ -70,37 +72,59 @@ The data set is called `e8u3l2r5c01t1a10v50`, after the command line options of 
 
 The simulation runs with 20 MPI ranks, one OpenMP thread each.
 
-## Original data: GPU run on aac7
+## GPU run on aac7
 
-The data in the original video were computed on the GPU of the AMD system **aac7**.
-The run was part of follow-up work on the course *"Introduction to OpenMP Offloading with AMD GPUs"*, October 27–28, 2026.
+The advection example was also run on a GPU of the AMD system **aac7**, as follow-up work on the course
+*"Introduction to OpenMP Offloading with AMD GPUs"*, October 27–28, 2026.
+This GPU run is not part of the video. It used 1 MPI rank on 1 GPU and different parameters
+(`-l 3 -r 4 -v 100`, see step 4 below).
 
 * System: HPE Cray EX with the Cray Programming Environment (CPE). PrgEnv-cray is loaded by default
   (Cray cce compiler, cray-mpich, cray-libsci). Switch toolchains with, e.g., `module load PrgEnv-amd` or
   `module load PrgEnv-gnu`.
-* GPU nodes: AMD MI300A APUs (`gfx942`), which support unified shared memory natively.
+* GPU nodes: AMD MI300A APUs (`gfx942`), CPU and GPU share the same memory.
 
-To produce the GPU data, build the same commit of t8code_GPU_experiments (see `dependencies.json`) with a Clang-based
-compiler and offloading enabled, then run with the same parameters:
+To repeat the GPU run, build the same commit of t8code_GPU_experiments (see `dependencies.json`) with offloading
+enabled. All steps run **on a GPU node**, in an interactive session started with `srun` (1 node, 1 GPU).
 
-```bash
-module load PrgEnv-amd
-cmake -S t8code_GPU_experiments -B build -GNinja -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_C_COMPILER=amdclang -DCMAKE_CXX_COMPILER=amdclang++ -DOFFLOAD_ARCH=gfx942
-ninja -C build t8code_GPU_experiments_advect
+1. Before building, load the new ROCm and use the AMD Clang compilers (needed for offloading):
 
-export OMP_TARGET_OFFLOAD=MANDATORY   # fail instead of silently falling back to the host
-export HSA_XNACK=1                    # unified memory (MI300A supports it natively)
-export LIBOMPTARGET_INFO=4            # optional: print the kernel launches
-mpirun -np 20 build/t8code_GPU_experiments_advect -e 8 -u 3 -l 2 -r 5 -C 0.1 -T 1 -a 10 -v 50
-```
+   ```bash
+   module unload rocm
+   module load rocm-new/10.1.0
+   export CC=amdclang
+   export CXX=amdclang++
+   ```
 
-> [!NOTE]
-> TODO (to be completed by the case author): exact module versions, the MPI launcher used on aac7
-> (`srun` or `mpirun`), number of nodes/GPUs and run time of the original GPU run.
+2. Build. On a GPU node, the offload architecture (`gfx942`) is detected automatically:
 
-The visualization step (`postprocessing/`) works the same for GPU and CPU data: copy the `advection_*.pvtu`/`.vtu` files
-to a machine with ParaView 5.11 and run `postprocessing/make_video.sh <data_dir> <out_dir> 30 6`.
+   ```bash
+   cmake -S t8code_GPU_experiments -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+   ninja -C build t8code_GPU_experiments_advect
+   ```
+
+3. Before running, enable XNACK. The kernel reads host memory directly (unified shared memory), which needs it:
+
+   ```bash
+   export HSA_XNACK=1
+   ```
+
+   Optional checks: `export OMP_TARGET_OFFLOAD=MANDATORY` aborts instead of silently falling back to the host,
+   and `export LIBOMPTARGET_INFO=4` prints the kernel launches.
+
+4. Run the executable directly in the interactive session, as a single process (no `mpirun`):
+
+   ```bash
+   cd build
+   ./t8code_GPU_experiments_advect -e 8 -u3 -l3 -r4 -C0.1 -T1 -a10 -v100
+   ```
+
+   Compared to the video run, this uses minimum level 3 with 4 adaptive levels (also up to level 7) and writes
+   VTK output only every 100 time steps.
+
+The scripts in `postprocessing/` also work for the output of the GPU run (copy the `advection_*.pvtu`/`.vtu` files
+to a machine with ParaView 5.11). The cutting plane, the camera and the video speed are tuned for the video run, though.
+With fewer output steps, choose a smaller `steps_per_second` in `make_video.sh` to keep the video length.
 
 ## Workflow
 
