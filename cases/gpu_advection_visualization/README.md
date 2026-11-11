@@ -42,8 +42,9 @@ is offloaded to the GPU with OpenMP `target`.
   color range of ±0.25 for all time steps.
 * The light surface is the interface $\varphi = 0$ on the removed side of the plane. Therefore the half sphere sits on
   the cut face. Around it you see the band of fine elements (refinement level up to 7) as a ring on the cut face.
-* The window in the top right corner zooms (10 times) into the refinement band on the cut face just above the sphere,
-  where the elements become finer towards the interface. The small frame in the main image marks the zoomed region.
+* The window in the bottom left corner zooms (10 times) into the refinement band on the cut face at the lower left of
+  the sphere. There, in the hexahedral part of the mesh, the elements become finer towards the interface like a
+  staircase. The small frame in the main image marks the zoomed region.
 * During the run, the sphere moves along a loop and is deformed by the flow (middle image). At the end it is almost
   back at its start. You can watch the refinement band move with the interface and the mesh coarsen behind it.
 
@@ -168,9 +169,10 @@ at the top of the file.
   the points, resamples them to a uniform 256³ grid, smooths them with a Gaussian filter
   (σ ≈ 0.013, removes ripples from the jumps at hanging faces) and then extracts $\varphi = 0$.
 * The zoom (option `--inset` of `advect_scene.py` and `make_video.sh`): a second camera looks from the same direction,
-  10 times magnified, at the interface on the cut face just above the sphere. Its target is the outermost point of
+  10 times magnified, at the interface on the cut face at the lower left of the sphere. Its target is the outermost point of
   the intersection of the interface with the cutting plane, so it follows the sphere and its deformation.
-  The zoom is placed in the top right corner of each frame, and a frame with two connecting lines marks the zoomed region
+  The sphere gets more ambient light in the zoom, since this side is in the shade.
+  The zoom is placed in the bottom left corner of each frame, and a frame with two connecting lines marks the zoomed region
   in the main image (drawn with Pillow). The state file contains only the main view.
 ## Dependencies
 

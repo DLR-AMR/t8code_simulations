@@ -8,7 +8,7 @@ library path, otherwise pvpython picks up libraries from the module system:
 
 'state' writes a ParaView state file for the GUI. 'render' writes one PNG per time step
 (frame_NNN.png) for the steps first, first+stride, ... up to last (inclusive). With --inset each frame also
-gets a zoom into the refinement band in the top right corner. Several render processes with disjoint
+gets a zoom into the refinement band in the bottom left corner. Several render processes with disjoint
 step ranges can run at the same time, see make_video.sh. The inset needs PIL (Pillow) in pvpython.
 """
 import builtins
@@ -39,23 +39,26 @@ BACKGROUND = [0.075, 0.08, 0.09]
 EDGE_COLOR = [0.22, 0.22, 0.22]
 ISO_COLOR = [0.93, 0.92, 0.88]
 OUTLINE_COLOR = [0.42, 0.42, 0.42]
-CAMERA_POSITION = [2.44, 2.33, 3.11]
-CAMERA_FOCAL_POINT = [0.44, 0.44, 0.56]
+CAMERA_POSITION = [2.872, 2.601, 3.232]
+CAMERA_FOCAL_POINT = [0.632, 0.484, 0.376]
 CAMERA_VIEW_UP = [0.0, 0.0, 1.0]
 CAMERA_VIEW_ANGLE = 30.0
-# Zoom into the refinement band (inset in the top right corner of the frame, option --inset).
+# Zoom into the refinement band (inset in the bottom left corner of the frame, option --inset).
 # The inset camera looks in the same direction as the main camera at a point on the cut face:
 # the point of the interface on the cutting plane that lies farthest in the in-plane direction
 # INSET_DIRECTION, moved by INSET_GAP further out. So it follows the sphere and its deformation.
 # The zoomed region is marked by a frame in the main image, connected to the inset by two lines.
 INSET_RESOLUTION = [360, 360]
 INSET_MARGIN = 16
-INSET_DIRECTION = [0.0, -0.7071, 0.7071]
+# Lower left of the sphere in the main image (hexahedral part of the mesh).
+INSET_DIRECTION = [0.962, 0.193, -0.193]
 INSET_GAP = 0.005
 # Magnification of the inset relative to the main image (pixel size of a feature in the inset / in the main image).
 INSET_ZOOM = 10.0
 INSET_LINE_COLOR = (176, 176, 176)
 INSET_LINE_WIDTH = 2
+# Ambient light of the interface in the inset, the zoomed side of the sphere is in the shade.
+INSET_ISO_AMBIENT = 0.4
 
 
 def data_files(data_dir):
@@ -258,7 +261,10 @@ def save_inset(view, time, frame_file, zoom=INSET_ZOOM):
   inset_file = frame_file.replace("frame_", "inset_")
   view.CameraFocalPoint = focal
   view.CameraPosition = [focal[i] + distance * back[i] for i in range(3)]
+  iso_rep = GetDisplayProperties(FindSource("interface_cut_side"), view)
+  iso_rep.Ambient = INSET_ISO_AMBIENT
   SaveScreenshot(inset_file, view, ImageResolution=INSET_RESOLUTION, CompressionLevel="3")
+  iso_rep.Ambient = 0.0
   view.CameraPosition = CAMERA_POSITION
   view.CameraFocalPoint = CAMERA_FOCAL_POINT
 
@@ -272,8 +278,8 @@ def save_inset(view, time, frame_file, zoom=INSET_ZOOM):
     q = [sum_row(matrix, row, p) for row in range(4)]
     region.append(((q[0] / q[3] + 1) / 2 * RESOLUTION[0], (1 - q[1] / q[3]) / 2 * RESOLUTION[1]))
   # Corners of the inset, with a border of INSET_LINE_WIDTH around the image.
-  x0 = RESOLUTION[0] - INSET_MARGIN - INSET_RESOLUTION[0] - INSET_LINE_WIDTH
-  y0 = INSET_MARGIN
+  x0 = INSET_MARGIN
+  y0 = RESOLUTION[1] - INSET_MARGIN - INSET_RESOLUTION[1] - 2 * INSET_LINE_WIDTH
   x1 = x0 + INSET_RESOLUTION[0] + 2 * INSET_LINE_WIDTH - 1
   y1 = y0 + INSET_RESOLUTION[1] + 2 * INSET_LINE_WIDTH - 1
   box = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
