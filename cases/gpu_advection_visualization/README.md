@@ -4,7 +4,7 @@
 
 ## Case description
 
-This case reproduces a video (and a still image) of t8code's finite-volume advection example running on an
+This case produces a video (and a still image) of t8code's finite-volume advection example running on an
 adaptive hybrid mesh. The example is part of
 [t8code_GPU_experiments](https://github.com/dlr-amr/t8code_GPU_experiments), where the element loop of the solver
 is offloaded to the GPU with OpenMP `target`.
@@ -17,13 +17,14 @@ is offloaded to the GPU with OpenMP `target`.
   middle of the run and a ParaView state file (`.pvsm`) to open the same scene in the ParaView GUI.
 
 > [!IMPORTANT]
-> **The data of the video were computed on the CPU, with 20 MPI ranks.**
-> The case does the same: it builds the advection example without offloading (`OFFLOAD_ARCH=NONE`), so it runs on
-> the Teamserver, which has no usable GPU. The case run reproduces the original data of the video exactly: same element
-> counts in every output step, identical solution values in the VTU files (checked for output step 59), and an
-> identical rendered image of output step 30.
-> The same code also runs on a GPU. See [GPU run on aac7](#gpu-run-on-aac7) for a GPU run of this example
-> (with different parameters).
+> **The case runs on the CPU, with 20 MPI ranks.**
+> It builds the advection example without offloading (`OFFLOAD_ARCH=NONE`), so it runs on the Teamserver, which has
+> no usable GPU. The case run is reproducible: two runs gave the same element counts in every output step, identical
+> solution values in the VTU files (checked for output step 59), and an identical rendered image of output step 30.
+>
+> **The original video was computed on a GPU** (aac7, 1 MPI rank on 1 GPU) with different parameters and more
+> output steps. It is stored separately. See [GPU run on aac7](#gpu-run-on-aac7) to repeat that run (optional).
+> The case and the GPU run use the same scene (cutting plane, camera, colors).
 
 ## What the video shows
 
@@ -76,8 +77,8 @@ The simulation runs with 20 MPI ranks, one OpenMP thread each.
 
 The advection example was also run on a GPU of the AMD system **aac7**, as follow-up work on the course
 *"Introduction to OpenMP Offloading with AMD GPUs"*, October 27–28, 2026.
-This GPU run is not part of the video. It used 1 MPI rank on 1 GPU and different parameters
-(`-l 3 -r 4 -v 100`, see step 4 below).
+The original video was made from this GPU run (data set `e8u3l3r4c01t1a10v25`). It used 1 MPI rank on 1 GPU and
+different parameters than the case (`-l 3 -r 4 -v 25`, see step 4 below). This run is optional, the case does not need it.
 
 * System: HPE Cray EX with the Cray Programming Environment (CPE). PrgEnv-cray is loaded by default
   (Cray cce compiler, cray-mpich, cray-libsci). Switch toolchains with, e.g., `module load PrgEnv-amd` or
@@ -116,15 +117,23 @@ enabled. All steps run **on a GPU node**, in an interactive session started with
 
    ```bash
    cd build
-   ./t8code_GPU_experiments_advect -e 8 -u3 -l3 -r4 -C0.1 -T1 -a10 -v100
+   ./t8code_GPU_experiments_advect -e 8 -u3 -l3 -r4 -C0.1 -T1 -a10 -v25
    ```
 
-   Compared to the video run, this uses minimum level 3 with 4 adaptive levels (also up to level 7) and writes
-   VTK output only every 100 time steps.
+   Compared to the case run, this uses minimum level 3 with 4 adaptive levels (also up to level 7) and writes
+   VTK output every 25 time steps (118 output steps `advection_000.pvtu` … `advection_117.pvtu`, about 25 GB).
 
-The scripts in `postprocessing/` also work for the output of the GPU run (copy the `advection_*.pvtu`/`.vtu` files
-to a machine with ParaView 5.11). The cutting plane, the camera and the video speed are tuned for the video run, though.
-With fewer output steps, choose a smaller `steps_per_second` in `make_video.sh` to keep the video length.
+To make the video from the GPU run, copy the `advection_*.pvtu`/`.vtu` files to a machine with ParaView 5.11 and run
+the scripts in `postprocessing/` with 11.8 steps per second (118 steps → 10 s video, 59 render processes):
+
+```bash
+bash postprocessing/make_video.sh <data_dir> <out_dir> 59 11.8
+env -u LD_LIBRARY_PATH -u PYTHONPATH /usr/bin/pvpython --force-offscreen-rendering \
+    postprocessing/advect_scene.py state <data_dir> <out_dir>/advect_hybrid_cube.pvsm
+```
+
+The cutting plane and the camera fit both runs, the sphere follows the same path. Rendering the 118 steps took
+about 5 minutes with 59 processes. The still image is output step 59.
 
 ## Workflow
 
