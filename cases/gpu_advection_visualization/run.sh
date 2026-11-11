@@ -69,8 +69,9 @@ log_msg "##################################################\n"
 log_msg "--------------------------------------------------"
 log_msg "(3.a) Render frames and encode video"
 log_msg "--------------------------------------------------"
-# 30 render processes, 6 time steps per second (60 steps -> 10 s video at 24 fps).
-bash postprocessing/make_video.sh $SIM_DIR $VIS_DIR 30 6
+# 30 render processes, 6 time steps per second (60 steps -> 10 s video at 24 fps),
+# with the zoom into the refinement band (--inset).
+bash postprocessing/make_video.sh $SIM_DIR $VIS_DIR 30 6 1 --inset
 
 log_msg "--------------------------------------------------"
 log_msg "(3.b) Write ParaView state file"

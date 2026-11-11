@@ -1,9 +1,10 @@
 #!/bin/bash
 # Render the time steps with advect_scene.py in parallel and encode the video.
 #
-# Usage: make_video.sh <data_dir> <out_dir> [num_workers] [steps_per_second] [stride]
+# Usage: make_video.sh <data_dir> <out_dir> [num_workers] [steps_per_second] [stride] [render options]
 # The video has 24 fps. With steps_per_second < 24 each rendered step is shown for several frames.
 # stride > 1 renders only every stride-th time step (e.g. for a quick test).
+# Render options are passed to advect_scene.py, e.g. --inset for the zoom into the refinement band.
 # Writes <out_dir>/frames/frame_NNN.png, <out_dir>/advect_hybrid_cube.mp4 and
 # <out_dir>/advect_hybrid_cube_still.png (middle rendered step).
 set -e
@@ -13,6 +14,7 @@ out_dir=$2
 workers=${3:-28}
 steps_per_second=${4:-24}
 stride=${5:-1}
+render_options=("${@:6}")
 script_dir=$(cd "$(dirname "$0")" && pwd)
 pvpython="env -u LD_LIBRARY_PATH -u PYTHONPATH LP_NUM_THREADS=4 /usr/bin/pvpython --force-offscreen-rendering"
 
@@ -25,7 +27,7 @@ rm -f "$out_dir"/frames/frame_*.png
 chunk=$(( (${#steps[@]} + workers - 1) / workers ))
 for (( i = 0; i < ${#steps[@]}; i += chunk )); do
   j=$(( i + chunk - 1 < ${#steps[@]} - 1 ? i + chunk - 1 : ${#steps[@]} - 1 ))
-  $pvpython "$script_dir/advect_scene.py" render "$data_dir" "$out_dir/frames" ${steps[$i]} ${steps[$j]} $stride \
+  $pvpython "$script_dir/advect_scene.py" render "$data_dir" "$out_dir/frames" ${steps[$i]} ${steps[$j]} $stride "${render_options[@]}" \
     > "$out_dir/logs/render_${steps[$i]}.log" 2>&1 &
 done
 wait

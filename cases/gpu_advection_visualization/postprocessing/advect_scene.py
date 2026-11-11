@@ -4,13 +4,16 @@ Tested with ParaView 5.11.2 (Ubuntu package, /usr/bin/pvpython). Run it with a c
 library path, otherwise pvpython picks up libraries from the module system:
 
   env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py state  <data_dir> <out.pvsm>
-  env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py render <data_dir> <out_dir> <first> <last> [stride] [--raytrace]
+  env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py render <data_dir> <out_dir> <first> <last> [stride] [--raytrace] [--inset] [--inset-zoom=Z]
 
 'state' writes a ParaView state file for the GUI. 'render' writes one PNG per time step
-(frame_NNN.png) for the steps first, first+stride, ... up to last (inclusive). Several render processes with disjoint
-step ranges can run at the same time, see make_video.sh.
+(frame_NNN.png) for the steps first, first+stride, ... up to last (inclusive). With --inset each frame also
+gets a zoom into the refinement band in the top right corner. Several render processes with disjoint
+step ranges can run at the same time, see make_video.sh. The inset needs PIL (Pillow) in pvpython.
 """
+import builtins
 import glob
+import math
 import os
 import re
 import sys
@@ -19,11 +22,12 @@ from paraview.simple import *
 
 # Scene parameters
 RESOLUTION = [1080, 1350]
-# Cutting plane, normal (0,1,1). In this case (run e8u3l2r5c01t1a10v50) the sphere center stays at
+# Cutting plane, normal (0,1,1). In run e8u3l2r5c01t1a10v50 the sphere center stays at
 # y+z = 1.18..1.24, so the half sphere sits on the cut face for the whole run.
+# (Test run e8u3l2r5c01t01: origin (0.6,0.6,0.6), normal (1,1,0).)
 PLANE_ORIGIN = [0.5, 0.605, 0.605]
 PLANE_NORMAL = [0.0, 1.0, 1.0]
-# Uniform grid for the interface contour, covers the sphere path.
+# Uniform grid for the interface contour, covers the sphere path of both runs.
 ISO_BOUNDS = [0.12, 0.95, 0.12, 0.95, 0.12, 0.95]
 ISO_DIMENSIONS = [256, 256, 256]
 # Gaussian smoothing of the resampled phi (standard deviation in voxels), removes the ripples
@@ -35,10 +39,23 @@ BACKGROUND = [0.075, 0.08, 0.09]
 EDGE_COLOR = [0.22, 0.22, 0.22]
 ISO_COLOR = [0.93, 0.92, 0.88]
 OUTLINE_COLOR = [0.42, 0.42, 0.42]
-CAMERA_POSITION = [2.50, 2.39, 3.02]
-CAMERA_FOCAL_POINT = [0.50, 0.50, 0.47]
+CAMERA_POSITION = [2.44, 2.33, 3.11]
+CAMERA_FOCAL_POINT = [0.44, 0.44, 0.56]
 CAMERA_VIEW_UP = [0.0, 0.0, 1.0]
 CAMERA_VIEW_ANGLE = 30.0
+# Zoom into the refinement band (inset in the top right corner of the frame, option --inset).
+# The inset camera looks in the same direction as the main camera at a point on the cut face:
+# the point of the interface on the cutting plane that lies farthest in the in-plane direction
+# INSET_DIRECTION, moved by INSET_GAP further out. So it follows the sphere and its deformation.
+# The zoomed region is marked by a frame in the main image, connected to the inset by two lines.
+INSET_RESOLUTION = [360, 360]
+INSET_MARGIN = 16
+INSET_DIRECTION = [0.0, -0.7071, 0.7071]
+INSET_GAP = 0.005
+# Magnification of the inset relative to the main image (pixel size of a feature in the inset / in the main image).
+INSET_ZOOM = 10.0
+INSET_LINE_COLOR = (176, 176, 176)
+INSET_LINE_WIDTH = 2
 
 
 def data_files(data_dir):
@@ -186,10 +203,116 @@ self.GetOutputDataObject(0).ShallowCopy(smooth.GetOutput())
   return reader, view
 
 
+def vec_dot(a, c):
+  """Dot product of two 3D vectors (paraview.simple shadows the builtin sum)."""
+  return a[0] * c[0] + a[1] * c[1] + a[2] * c[2]
+
+
+def vec_normalized(a):
+  length = vec_dot(a, a) ** 0.5
+  return [x / length for x in a]
+
+
+def convex_hull(points):
+  """Indices of the convex hull of 2D points (monotone chain)."""
+  order = sorted(range(len(points)), key=lambda i: points[i])
+  def cross(o, a, b):
+    return (points[a][0] - points[o][0]) * (points[b][1] - points[o][1]) \
+        - (points[a][1] - points[o][1]) * (points[b][0] - points[o][0])
+  hull = []
+  for sweep in (order, order[::-1]):
+    part = []
+    for i in sweep:
+      while len(part) >= 2 and cross(part[-2], part[-1], i) <= 0:
+        part.pop()
+      part.append(i)
+    hull += part[:-1]
+  return set(hull)
+
+
+def save_inset(view, time, frame_file, zoom=INSET_ZOOM):
+  """Render the zoom into the refinement band at the given time and add it to the frame image."""
+  from PIL import Image, ImageDraw
+  from paraview import servermanager
+  # Intersection curve of the interface with the cutting plane (not part of the state file).
+  section = FindSource("interface_on_plane")
+  if section is None:
+    section = Slice(registrationName="interface_on_plane", Input=FindSource("interface_phi0"))
+    section.SliceType = "Plane"
+    section.SliceType.Origin = PLANE_ORIGIN
+    section.SliceType.Normal = PLANE_NORMAL
+  section.UpdatePipeline(time)
+  points = servermanager.Fetch(section).GetPoints()
+  outermost = builtins.max((points.GetPoint(i) for i in range(points.GetNumberOfPoints())),
+                  key=lambda p: vec_dot(p, INSET_DIRECTION))
+  focal = [outermost[i] + INSET_GAP * INSET_DIRECTION[i] for i in range(3)]
+  # Camera basis: back (towards the camera), up and right.
+  back = vec_normalized([CAMERA_POSITION[i] - CAMERA_FOCAL_POINT[i] for i in range(3)])
+  up = vec_normalized([CAMERA_VIEW_UP[i] - vec_dot(CAMERA_VIEW_UP, back) * back[i] for i in range(3)])
+  right = [up[1] * back[2] - up[2] * back[1], up[2] * back[0] - up[0] * back[2], up[0] * back[1] - up[1] * back[0]]
+
+  # Same view angle as the main camera, so the camera distance gives the magnification.
+  main_distance = vec_dot([CAMERA_POSITION[i] - CAMERA_FOCAL_POINT[i] for i in range(3)], back)
+  distance = main_distance * INSET_RESOLUTION[1] / (RESOLUTION[1] * zoom)
+
+  inset_file = frame_file.replace("frame_", "inset_")
+  view.CameraFocalPoint = focal
+  view.CameraPosition = [focal[i] + distance * back[i] for i in range(3)]
+  SaveScreenshot(inset_file, view, ImageResolution=INSET_RESOLUTION, CompressionLevel="3")
+  view.CameraPosition = CAMERA_POSITION
+  view.CameraFocalPoint = CAMERA_FOCAL_POINT
+
+  # Corners of the zoomed region (top left, top right, bottom right, bottom left) in the main image.
+  half = distance * math.tan(math.radians(CAMERA_VIEW_ANGLE / 2))
+  camera = view.GetActiveCamera()
+  matrix = camera.GetCompositeProjectionTransformMatrix(RESOLUTION[0] / RESOLUTION[1], -1, 1)
+  region = []
+  for sx, sy in ((-1, 1), (1, 1), (1, -1), (-1, -1)):
+    p = [focal[i] + half * (sx * right[i] + sy * up[i]) for i in range(3)] + [1.0]
+    q = [sum_row(matrix, row, p) for row in range(4)]
+    region.append(((q[0] / q[3] + 1) / 2 * RESOLUTION[0], (1 - q[1] / q[3]) / 2 * RESOLUTION[1]))
+  # Corners of the inset, with a border of INSET_LINE_WIDTH around the image.
+  x0 = RESOLUTION[0] - INSET_MARGIN - INSET_RESOLUTION[0] - INSET_LINE_WIDTH
+  y0 = INSET_MARGIN
+  x1 = x0 + INSET_RESOLUTION[0] + 2 * INSET_LINE_WIDTH - 1
+  y1 = y0 + INSET_RESOLUTION[1] + 2 * INSET_LINE_WIDTH - 1
+  box = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+  # Draw the lines supersampled, so that they are antialiased after downsampling.
+  scale = 4
+  frame = Image.open(frame_file).convert("RGB")
+  overlay = Image.new("L", (RESOLUTION[0] * scale, RESOLUTION[1] * scale), 0)
+  draw = ImageDraw.Draw(overlay)
+  def scaled(points):
+    return [(x * scale, y * scale) for x, y in points]
+  draw.line(scaled(region + region[:1]), fill=255, width=INSET_LINE_WIDTH * scale, joint="curve")
+  # Connect the corresponding corners that lie on the outside of both rectangles.
+  hull = convex_hull(region + box)
+  for i in range(4):
+    if i in hull and i + 4 in hull:
+      draw.line(scaled([region[i], box[i]]), fill=255, width=INSET_LINE_WIDTH * scale)
+  draw.rectangle(scaled([box[0], box[2]]), fill=255)
+  overlay = overlay.resize(RESOLUTION, Image.LANCZOS)
+  frame.paste(Image.new("RGB", RESOLUTION, INSET_LINE_COLOR), (0, 0), overlay)
+  frame.paste(Image.open(inset_file).convert("RGB"), (x0 + INSET_LINE_WIDTH, y0 + INSET_LINE_WIDTH))
+  frame.save(frame_file, compress_level=3)
+  os.remove(inset_file)
+
+
+def sum_row(matrix, row, p):
+  return (matrix.GetElement(row, 0) * p[0] + matrix.GetElement(row, 1) * p[1]
+          + matrix.GetElement(row, 2) * p[2] + matrix.GetElement(row, 3) * p[3])
+
+
 def main():
   mode, data_dir = sys.argv[1], sys.argv[2]
   files = data_files(data_dir)
   raytrace = "--raytrace" in sys.argv
+  inset = "--inset" in sys.argv
+  zoom = INSET_ZOOM
+  for arg in sys.argv:
+    if arg.startswith("--inset-zoom="):
+      zoom = float(arg.split("=")[1])
   reader, view = build_scene(files, raytrace)
   if mode == "state":
     SaveState(sys.argv[3])
@@ -201,8 +324,10 @@ def main():
   times = reader.TimestepValues
   for step in range(first, last + 1, stride):
     scene.AnimationTime = times[step]
-    SaveScreenshot(os.path.join(out_dir, "frame_%03d.png" % step), view,
-                   ImageResolution=RESOLUTION, CompressionLevel="3")
+    frame_file = os.path.join(out_dir, "frame_%03d.png" % step)
+    SaveScreenshot(frame_file, view, ImageResolution=RESOLUTION, CompressionLevel="3")
+    if inset:
+      save_inset(view, times[step], frame_file, zoom)
     print("frame %d done" % step, flush=True)
 
 

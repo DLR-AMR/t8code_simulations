@@ -42,6 +42,8 @@ is offloaded to the GPU with OpenMP `target`.
   color range of ±0.25 for all time steps.
 * The light surface is the interface $\varphi = 0$ on the removed side of the plane. Therefore the half sphere sits on
   the cut face. Around it you see the band of fine elements (refinement level up to 7) as a ring on the cut face.
+* The window in the top right corner zooms (10 times) into the refinement band on the cut face just above the sphere,
+  where the elements become finer towards the interface. The small frame in the main image marks the zoomed region.
 * During the run, the sphere moves along a loop and is deformed by the flow (middle image). At the end it is almost
   back at its start. You can watch the refinement band move with the interface and the mesh coarsen behind it.
 
@@ -127,7 +129,7 @@ To make the video from the GPU run, copy the `advection_*.pvtu`/`.vtu` files to 
 the scripts in `postprocessing/` with 11.8 steps per second (118 steps → 10 s video, 59 render processes):
 
 ```bash
-bash postprocessing/make_video.sh <data_dir> <out_dir> 59 11.8
+bash postprocessing/make_video.sh <data_dir> <out_dir> 59 11.8 1 --inset
 env -u LD_LIBRARY_PATH -u PYTHONPATH /usr/bin/pvpython --force-offscreen-rendering \
     postprocessing/advect_scene.py state <data_dir> <out_dir>/advect_hybrid_cube.pvsm
 ```
@@ -142,8 +144,8 @@ The `run.sh` script executes the following main steps:
 * Configure and build `t8code_GPU_experiments_advect` from `libs/t8code_gpu_experiments-src` without offloading.
   The project fetches its own t8code version (see `cmake/thirdparty.json` in that repository).
 * Run the simulation with 20 MPI ranks in `output/simulation/` (60 output steps `advection_000.pvtu` … `advection_059.pvtu`, log in `advect.log`).
-* Render one image per output step with ParaView (30 processes in parallel) and encode the video with ffmpeg.
-  Each step is shown for 4 video frames (6 steps per second), so the video is 10 s long.
+* Render one image per output step with ParaView (30 processes in parallel), with a zoom into the refinement band,
+  and encode the video with ffmpeg. Each step is shown for 4 video frames (6 steps per second), so the video is 10 s long.
 * Write the ParaView state file.
 
 Results in `output/visualization/`:
@@ -165,7 +167,11 @@ at the top of the file.
   per-element copies of the points. Instead, the pipeline merges the points (Clean to Grid), averages the cell values to
   the points, resamples them to a uniform 256³ grid, smooths them with a Gaussian filter
   (σ ≈ 0.013, removes ripples from the jumps at hanging faces) and then extracts $\varphi = 0$.
-
+* The zoom (option `--inset` of `advect_scene.py` and `make_video.sh`): a second camera looks from the same direction,
+  10 times magnified, at the interface on the cut face just above the sphere. Its target is the outermost point of
+  the intersection of the interface with the cutting plane, so it follows the sphere and its deformation.
+  The zoom is placed in the top right corner of each frame, and a frame with two connecting lines marks the zoomed region
+  in the main image (drawn with Pillow). The state file contains only the main view.
 ## Dependencies
 
 ### Fetched repositories
