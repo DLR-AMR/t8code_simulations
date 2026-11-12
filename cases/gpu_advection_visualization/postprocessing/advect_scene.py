@@ -5,11 +5,12 @@ library path, otherwise pvpython picks up libraries from the module system:
 
   env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py state  <data_dir> <out.pvsm>
   env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py render <data_dir> <out_dir> <first> <last> [stride] [--raytrace]
-      [--inset] [--inset-zoom=Z] [--inset-iso=transparent|curve] [--labels]
+      [--inset] [--inset-zoom=Z] [--inset-iso=transparent|curve] [--labels] [--subtitle=TEXT]
 
 'state' writes a ParaView state file for the GUI. 'render' writes one PNG per time step
 (frame_NNN.png) for the steps first, first+stride, ... up to last (inclusive). With --inset each frame also
 gets a zoom into the refinement band in the bottom left corner, with --labels the text overlays.
+--subtitle replaces the second text line (it describes the GPU run), an empty TEXT leaves it out.
 Several render processes with disjoint step ranges can run at the same time, see make_video.sh.
 The inset and the labels need PIL (Pillow) in pvpython.
 """
@@ -313,7 +314,7 @@ def save_inset(view, time, inset_file, zoom=INSET_ZOOM, iso_mode=INSET_ISO_MODE)
   return region
 
 
-def compose_frame(frame_file, inset_file=None, region=None, labels=False):
+def compose_frame(frame_file, inset_file=None, region=None, labels=False, subtitle=None):
   """Add the inset (with the frame around the zoomed region and the connecting lines) and the labels to the frame."""
   from PIL import Image, ImageDraw, ImageFont
   frame = Image.open(frame_file).convert("RGB")
@@ -341,9 +342,11 @@ def compose_frame(frame_file, inset_file=None, region=None, labels=False):
     frame.paste(Image.open(inset_file).convert("RGB"), (x0 + INSET_LINE_WIDTH, y0 + INSET_LINE_WIDTH))
   if labels:
     draw = ImageDraw.Draw(frame)
-    for text, font_file, size, color, position in [LABEL_TITLE, LABEL_SUBTITLE] + ([LABEL_INSET] if inset_file else []):
-      font = ImageFont.truetype(os.path.join(FONT_DIR, font_file), size)
-      draw.text(position, text, font=font, fill=color)
+    title_lines = [LABEL_TITLE, LABEL_SUBTITLE if subtitle is None else (subtitle,) + LABEL_SUBTITLE[1:]]
+    for text, font_file, size, color, position in title_lines + ([LABEL_INSET] if inset_file else []):
+      if text:
+        font = ImageFont.truetype(os.path.join(FONT_DIR, font_file), size)
+        draw.text(position, text, font=font, fill=color)
   frame.save(frame_file, compress_level=3)
 
 
@@ -360,7 +363,10 @@ def main():
   labels = "--labels" in sys.argv
   zoom = INSET_ZOOM
   iso_mode = INSET_ISO_MODE
+  subtitle = None
   for arg in sys.argv:
+    if arg.startswith("--subtitle="):
+      subtitle = arg[len("--subtitle="):]
     if arg.startswith("--inset-zoom="):
       zoom = float(arg.split("=")[1])
     if arg.startswith("--inset-iso="):
@@ -383,7 +389,7 @@ def main():
       inset_file = os.path.join(out_dir, "inset_%03d.png" % step)
       region = save_inset(view, times[step], inset_file, zoom, iso_mode)
     if inset or labels:
-      compose_frame(frame_file, inset_file, region, labels)
+      compose_frame(frame_file, inset_file, region, labels, subtitle)
     if inset_file:
       os.remove(inset_file)
     print("frame %d done" % step, flush=True)

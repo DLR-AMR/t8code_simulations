@@ -143,6 +143,7 @@ The option `--labels` adds the text overlays of the original video: the title
 "t8code - adaptive mesh refinement on a hybrid mesh", below it "Solver loop: AMD GPU (OpenMP offload) - Mesh adaptation: CPU",
 and "Refinement follows interface" below the zoom. The second line describes the GPU run, therefore `run.sh` (CPU run)
 does not use `--labels`. The texts are set at the top of `postprocessing/advect_scene.py` (`LABEL_*`).
+With `--subtitle=TEXT` the second line is replaced, `--subtitle=` leaves it out (e.g. for CPU runs).
 
 ## Workflow
 
