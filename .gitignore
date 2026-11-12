@@ -5,6 +5,7 @@
 /cases/*/build/
 /cases/*/install/
 /cases/*/libs/
+/cases/*/out/
 
 # tutorial_internal: t8code moved out of libs/
 /cases/tutorial_internal/t8code/
