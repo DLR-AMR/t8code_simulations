@@ -19,6 +19,9 @@ rm -rf build
 rm -rf install
 rm -rf libs
 
+# Remove the simulation output
+rm -rf out
+
 # Remove the Julia depot, the resolved package versions, and the machine-specific preferences
 rm -rf julia_depot
 rm -f Manifest.toml
