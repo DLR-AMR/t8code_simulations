@@ -25,6 +25,7 @@ cmake . -DCASE_DIR=./cases/hello_world
 
 Our reference hardware is the AMR teamserver - An Ubuntu 24.04 system at DLR. We do not guarantee it will run on any other system, but to keep adoption simple, all teamserver-specific settings are encapsulated in a separate (case-level) script.
 This script is only run when passing `-DON_TEAMSERVER=ON`; if it fails, running the case is aborted. By default (`ON_TEAMSERVER=OFF`), it is skipped, so you have to provide the dependencies listed in the case's `README.md` yourself.
+If CMake or a case does not find some of them on its own, set hints where they are installed in `system_hints.sh` in the repository root, e.g., the installation prefixes of OpenCASCADE and VTK. These hints apply to all cases.
 
 
 ## Adding a new case

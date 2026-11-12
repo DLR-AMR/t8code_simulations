@@ -14,6 +14,6 @@ module purge
 
 # Load required modules.
 echo "Load required modules"
-module load t8code/t8code-development-gcc13-mpich
+module load t8code/t8code-development-gcc13-mpich-with-vtk-9.1-and-occ-7.6.0
 
 echo "Done preparing Teamserver"
