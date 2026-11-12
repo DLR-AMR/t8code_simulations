@@ -42,9 +42,10 @@ is offloaded to the GPU with OpenMP `target`.
   color range of ±0.25 for all time steps.
 * The light surface is the interface $\varphi = 0$ on the removed side of the plane. Therefore the half sphere sits on
   the cut face. Around it you see the band of fine elements (refinement level up to 7) as a ring on the cut face.
-* The window in the bottom left corner zooms (10 times) into the refinement band on the cut face at the lower left of
+* The window in the lower left corner zooms (10 times) into the refinement band on the cut face at the lower left of
   the sphere. There, in the hexahedral part of the mesh, the elements become finer towards the interface like a
-  staircase. The small frame in the main image marks the zoomed region.
+  staircase. In the zoom, the sphere is semi-transparent, so the elements behind it stay visible.
+  The small frame in the main image marks the zoomed region.
 * During the run, the sphere moves along a loop and is deformed by the flow (middle image). At the end it is almost
   back at its start. You can watch the refinement band move with the interface and the mesh coarsen behind it.
 
@@ -130,13 +131,18 @@ To make the video from the GPU run, copy the `advection_*.pvtu`/`.vtu` files to 
 the scripts in `postprocessing/` with 11.8 steps per second (118 steps → 10 s video, 59 render processes):
 
 ```bash
-bash postprocessing/make_video.sh <data_dir> <out_dir> 59 11.8 1 --inset
+bash postprocessing/make_video.sh <data_dir> <out_dir> 59 11.8 1 --inset --labels
 env -u LD_LIBRARY_PATH -u PYTHONPATH /usr/bin/pvpython --force-offscreen-rendering \
     postprocessing/advect_scene.py state <data_dir> <out_dir>/advect_hybrid_cube.pvsm
 ```
 
 The cutting plane and the camera fit both runs, the sphere follows the same path. Rendering the 118 steps took
 about 5 minutes with 59 processes. The still image is output step 59.
+
+The option `--labels` adds the text overlays of the original video: the title
+"t8code - adaptive mesh refinement on a hybrid mesh", below it "Solver loop: AMD GPU (OpenMP offload) - Mesh adaptation: CPU",
+and "Refinement follows interface" below the zoom. The second line describes the GPU run, therefore `run.sh` (CPU run)
+does not use `--labels`. The texts are set at the top of `postprocessing/advect_scene.py` (`LABEL_*`).
 
 ## Workflow
 
@@ -171,9 +177,13 @@ at the top of the file.
 * The zoom (option `--inset` of `advect_scene.py` and `make_video.sh`): a second camera looks from the same direction,
   10 times magnified, at the interface on the cut face at the lower left of the sphere. Its target is the outermost point of
   the intersection of the interface with the cutting plane, so it follows the sphere and its deformation.
-  The sphere gets more ambient light in the zoom, since this side is in the shade.
-  The zoom is placed in the bottom left corner of each frame, and a frame with two connecting lines marks the zoomed region
-  in the main image (drawn with Pillow). The state file contains only the main view.
+  In the zoom, the sphere is semi-transparent (opacity 0.4) and gets more ambient light, since this side is in the shade.
+  The zoom is placed in the lower left of each frame, about 190 px above the bottom edge, so that the controls of video
+  players do not cover it. A frame with two connecting lines marks the zoomed region in the main image (drawn with Pillow).
+  The state file contains only the main view.
+* The text overlays (option `--labels`, see [GPU run on aac7](#gpu-run-on-aac7)) use the Roboto font
+  (`/usr/share/fonts/truetype/roboto/hinted`). The camera frames the cube so that it stays clear of the texts and the zoom.
+
 ## Dependencies
 
 ### Fetched repositories
@@ -192,6 +202,7 @@ at the top of the file.
   ParaView 5.12.0-RC1 from the module system crashes (segmentation fault in `vtkExtractCells`) when the time step
   changes with a crinkle clip in the pipeline. Use 5.11.2 also to open the state file in the GUI (`/usr/bin/paraview`).
 * ffmpeg with libx264.
+* Pillow (Python package, included in the Ubuntu ParaView 5.11.2) and the Roboto font for the zoom and the text overlays.
 * MPI version 3.0 or higher, C++ compiler supporting C++20.
 * Disk space: about 12 GB for the simulation output (ASCII VTU) in `output/simulation/`.
 

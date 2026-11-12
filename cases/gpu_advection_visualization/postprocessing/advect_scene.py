@@ -4,12 +4,14 @@ Tested with ParaView 5.11.2 (Ubuntu package, /usr/bin/pvpython). Run it with a c
 library path, otherwise pvpython picks up libraries from the module system:
 
   env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py state  <data_dir> <out.pvsm>
-  env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py render <data_dir> <out_dir> <first> <last> [stride] [--raytrace] [--inset] [--inset-zoom=Z]
+  env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py render <data_dir> <out_dir> <first> <last> [stride] [--raytrace]
+      [--inset] [--inset-zoom=Z] [--inset-iso=transparent|curve] [--labels]
 
 'state' writes a ParaView state file for the GUI. 'render' writes one PNG per time step
 (frame_NNN.png) for the steps first, first+stride, ... up to last (inclusive). With --inset each frame also
-gets a zoom into the refinement band in the bottom left corner. Several render processes with disjoint
-step ranges can run at the same time, see make_video.sh. The inset needs PIL (Pillow) in pvpython.
+gets a zoom into the refinement band in the bottom left corner, with --labels the text overlays.
+Several render processes with disjoint step ranges can run at the same time, see make_video.sh.
+The inset and the labels need PIL (Pillow) in pvpython.
 """
 import builtins
 import glob
@@ -39,8 +41,9 @@ BACKGROUND = [0.075, 0.08, 0.09]
 EDGE_COLOR = [0.22, 0.22, 0.22]
 ISO_COLOR = [0.93, 0.92, 0.88]
 OUTLINE_COLOR = [0.42, 0.42, 0.42]
-CAMERA_POSITION = [2.872, 2.601, 3.232]
-CAMERA_FOCAL_POINT = [0.632, 0.484, 0.376]
+# The cube is framed so that it stays clear of the two text lines at the top and the inset with its label.
+CAMERA_POSITION = [3.581, 3.071, 3.811]
+CAMERA_FOCAL_POINT = [0.803, 0.446, 0.270]
 CAMERA_VIEW_UP = [0.0, 0.0, 1.0]
 CAMERA_VIEW_ANGLE = 30.0
 # Zoom into the refinement band (inset in the bottom left corner of the frame, option --inset).
@@ -49,7 +52,9 @@ CAMERA_VIEW_ANGLE = 30.0
 # INSET_DIRECTION, moved by INSET_GAP further out. So it follows the sphere and its deformation.
 # The zoomed region is marked by a frame in the main image, connected to the inset by two lines.
 INSET_RESOLUTION = [360, 360]
-INSET_MARGIN = 16
+# Top left corner of the inset border in the frame. The inset stays clear of the bottom of the frame,
+# where video players show their controls.
+INSET_POSITION = [40, 800]
 # Lower left of the sphere in the main image (hexahedral part of the mesh).
 INSET_DIRECTION = [0.962, 0.193, -0.193]
 INSET_GAP = 0.005
@@ -59,6 +64,20 @@ INSET_LINE_COLOR = (176, 176, 176)
 INSET_LINE_WIDTH = 2
 # Ambient light of the interface in the inset, the zoomed side of the sphere is in the shade.
 INSET_ISO_AMBIENT = 0.4
+# How the interface is shown in the inset, so that the elements behind it stay visible:
+# "transparent" (the sphere with opacity INSET_ISO_OPACITY) or "curve" (only the intersection of the
+# interface with the cutting plane, as a line of width INSET_CURVE_WIDTH).
+INSET_ISO_MODE = "transparent"
+INSET_ISO_OPACITY = 0.4
+INSET_CURVE_WIDTH = 6.0
+
+# Text overlays (option --labels): (text, font file, size in px, color, position of the top left corner).
+FONT_DIR = "/usr/share/fonts/truetype/roboto/hinted"
+LABEL_TITLE = ("t8code - adaptive mesh refinement on a hybrid mesh", "Roboto-Medium.ttf", 40, (240, 240, 240), (40, 30))
+LABEL_SUBTITLE = ("Solver loop: AMD GPU (OpenMP offload) - Mesh adaptation: CPU", "Roboto-Regular.ttf", 30,
+                  (190, 190, 190), (40, 84))
+# Shown with the inset, below it.
+LABEL_INSET = ("Refinement follows interface", "Roboto-Regular.ttf", 30, (190, 190, 190), (40, 1178))
 
 
 def data_files(data_dir):
@@ -233,9 +252,9 @@ def convex_hull(points):
   return set(hull)
 
 
-def save_inset(view, time, frame_file, zoom=INSET_ZOOM):
-  """Render the zoom into the refinement band at the given time and add it to the frame image."""
-  from PIL import Image, ImageDraw
+def save_inset(view, time, inset_file, zoom=INSET_ZOOM, iso_mode=INSET_ISO_MODE):
+  """Render the zoom into the refinement band at the given time into inset_file.
+  Returns the corners of the zoomed region in the main image (top left, top right, bottom right, bottom left)."""
   from paraview import servermanager
   # Intersection curve of the interface with the cutting plane (not part of the state file).
   section = FindSource("interface_on_plane")
@@ -244,6 +263,13 @@ def save_inset(view, time, frame_file, zoom=INSET_ZOOM):
     section.SliceType = "Plane"
     section.SliceType.Origin = PLANE_ORIGIN
     section.SliceType.Normal = PLANE_NORMAL
+    curve_rep = Show(section, view)
+    curve_rep.ColorArrayName = [None, ""]
+    curve_rep.AmbientColor = ISO_COLOR
+    curve_rep.DiffuseColor = ISO_COLOR
+    curve_rep.LineWidth = INSET_CURVE_WIDTH
+    curve_rep.RenderLinesAsTubes = 1
+    curve_rep.Visibility = 0
   section.UpdatePipeline(time)
   points = servermanager.Fetch(section).GetPoints()
   outermost = builtins.max((points.GetPoint(i) for i in range(points.GetNumberOfPoints())),
@@ -258,17 +284,24 @@ def save_inset(view, time, frame_file, zoom=INSET_ZOOM):
   main_distance = vec_dot([CAMERA_POSITION[i] - CAMERA_FOCAL_POINT[i] for i in range(3)], back)
   distance = main_distance * INSET_RESOLUTION[1] / (RESOLUTION[1] * zoom)
 
-  inset_file = frame_file.replace("frame_", "inset_")
   view.CameraFocalPoint = focal
   view.CameraPosition = [focal[i] + distance * back[i] for i in range(3)]
   iso_rep = GetDisplayProperties(FindSource("interface_cut_side"), view)
+  curve_rep = GetDisplayProperties(section, view)
   iso_rep.Ambient = INSET_ISO_AMBIENT
+  if iso_mode == "curve":
+    iso_rep.Visibility = 0
+    curve_rep.Visibility = 1
+  else:
+    iso_rep.Opacity = INSET_ISO_OPACITY
   SaveScreenshot(inset_file, view, ImageResolution=INSET_RESOLUTION, CompressionLevel="3")
   iso_rep.Ambient = 0.0
+  iso_rep.Opacity = 1.0
+  iso_rep.Visibility = 1
+  curve_rep.Visibility = 0
   view.CameraPosition = CAMERA_POSITION
   view.CameraFocalPoint = CAMERA_FOCAL_POINT
 
-  # Corners of the zoomed region (top left, top right, bottom right, bottom left) in the main image.
   half = distance * math.tan(math.radians(CAMERA_VIEW_ANGLE / 2))
   camera = view.GetActiveCamera()
   matrix = camera.GetCompositeProjectionTransformMatrix(RESOLUTION[0] / RESOLUTION[1], -1, 1)
@@ -277,32 +310,41 @@ def save_inset(view, time, frame_file, zoom=INSET_ZOOM):
     p = [focal[i] + half * (sx * right[i] + sy * up[i]) for i in range(3)] + [1.0]
     q = [sum_row(matrix, row, p) for row in range(4)]
     region.append(((q[0] / q[3] + 1) / 2 * RESOLUTION[0], (1 - q[1] / q[3]) / 2 * RESOLUTION[1]))
-  # Corners of the inset, with a border of INSET_LINE_WIDTH around the image.
-  x0 = INSET_MARGIN
-  y0 = RESOLUTION[1] - INSET_MARGIN - INSET_RESOLUTION[1] - 2 * INSET_LINE_WIDTH
-  x1 = x0 + INSET_RESOLUTION[0] + 2 * INSET_LINE_WIDTH - 1
-  y1 = y0 + INSET_RESOLUTION[1] + 2 * INSET_LINE_WIDTH - 1
-  box = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+  return region
 
-  # Draw the lines supersampled, so that they are antialiased after downsampling.
-  scale = 4
+
+def compose_frame(frame_file, inset_file=None, region=None, labels=False):
+  """Add the inset (with the frame around the zoomed region and the connecting lines) and the labels to the frame."""
+  from PIL import Image, ImageDraw, ImageFont
   frame = Image.open(frame_file).convert("RGB")
-  overlay = Image.new("L", (RESOLUTION[0] * scale, RESOLUTION[1] * scale), 0)
-  draw = ImageDraw.Draw(overlay)
-  def scaled(points):
-    return [(x * scale, y * scale) for x, y in points]
-  draw.line(scaled(region + region[:1]), fill=255, width=INSET_LINE_WIDTH * scale, joint="curve")
-  # Connect the corresponding corners that lie on the outside of both rectangles.
-  hull = convex_hull(region + box)
-  for i in range(4):
-    if i in hull and i + 4 in hull:
-      draw.line(scaled([region[i], box[i]]), fill=255, width=INSET_LINE_WIDTH * scale)
-  draw.rectangle(scaled([box[0], box[2]]), fill=255)
-  overlay = overlay.resize(RESOLUTION, Image.LANCZOS)
-  frame.paste(Image.new("RGB", RESOLUTION, INSET_LINE_COLOR), (0, 0), overlay)
-  frame.paste(Image.open(inset_file).convert("RGB"), (x0 + INSET_LINE_WIDTH, y0 + INSET_LINE_WIDTH))
+  if inset_file:
+    # Corners of the inset, with a border of INSET_LINE_WIDTH around the image.
+    x0, y0 = INSET_POSITION
+    x1 = x0 + INSET_RESOLUTION[0] + 2 * INSET_LINE_WIDTH - 1
+    y1 = y0 + INSET_RESOLUTION[1] + 2 * INSET_LINE_WIDTH - 1
+    box = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    # Draw the lines supersampled, so that they are antialiased after downsampling.
+    scale = 4
+    overlay = Image.new("L", (RESOLUTION[0] * scale, RESOLUTION[1] * scale), 0)
+    draw = ImageDraw.Draw(overlay)
+    def scaled(points):
+      return [(x * scale, y * scale) for x, y in points]
+    draw.line(scaled(region + region[:1]), fill=255, width=INSET_LINE_WIDTH * scale, joint="curve")
+    # Connect the corresponding corners that lie on the outside of both rectangles.
+    hull = convex_hull(region + box)
+    for i in range(4):
+      if i in hull and i + 4 in hull:
+        draw.line(scaled([region[i], box[i]]), fill=255, width=INSET_LINE_WIDTH * scale)
+    draw.rectangle(scaled([box[0], box[2]]), fill=255)
+    overlay = overlay.resize(RESOLUTION, Image.LANCZOS)
+    frame.paste(Image.new("RGB", RESOLUTION, INSET_LINE_COLOR), (0, 0), overlay)
+    frame.paste(Image.open(inset_file).convert("RGB"), (x0 + INSET_LINE_WIDTH, y0 + INSET_LINE_WIDTH))
+  if labels:
+    draw = ImageDraw.Draw(frame)
+    for text, font_file, size, color, position in [LABEL_TITLE, LABEL_SUBTITLE] + ([LABEL_INSET] if inset_file else []):
+      font = ImageFont.truetype(os.path.join(FONT_DIR, font_file), size)
+      draw.text(position, text, font=font, fill=color)
   frame.save(frame_file, compress_level=3)
-  os.remove(inset_file)
 
 
 def sum_row(matrix, row, p):
@@ -315,10 +357,14 @@ def main():
   files = data_files(data_dir)
   raytrace = "--raytrace" in sys.argv
   inset = "--inset" in sys.argv
+  labels = "--labels" in sys.argv
   zoom = INSET_ZOOM
+  iso_mode = INSET_ISO_MODE
   for arg in sys.argv:
     if arg.startswith("--inset-zoom="):
       zoom = float(arg.split("=")[1])
+    if arg.startswith("--inset-iso="):
+      iso_mode = arg.split("=")[1]
   reader, view = build_scene(files, raytrace)
   if mode == "state":
     SaveState(sys.argv[3])
@@ -332,8 +378,14 @@ def main():
     scene.AnimationTime = times[step]
     frame_file = os.path.join(out_dir, "frame_%03d.png" % step)
     SaveScreenshot(frame_file, view, ImageResolution=RESOLUTION, CompressionLevel="3")
+    inset_file, region = None, None
     if inset:
-      save_inset(view, times[step], frame_file, zoom)
+      inset_file = os.path.join(out_dir, "inset_%03d.png" % step)
+      region = save_inset(view, times[step], inset_file, zoom, iso_mode)
+    if inset or labels:
+      compose_frame(frame_file, inset_file, region, labels)
+    if inset_file:
+      os.remove(inset_file)
     print("frame %d done" % step, flush=True)
 
 
