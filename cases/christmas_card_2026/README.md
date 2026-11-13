@@ -1,5 +1,9 @@
 # Case README: Christmas Card 2026
 
+<div align="center">
+<img alt="christmas gif" src="./christmas_tree.gif" />
+</div>
+
 ## Case description
 
 Trixi.jl simulation for the Christmas card 2026: a christmas tree rocking in the wind, as a forever looping gif. Trixi.jl uses a local installation of t8code (via T8code.jl) instead of the binaries provided by `t8code_jll`.
