@@ -1,0 +1,16 @@
+# Conda environment with the system dependencies of the case.
+# Install and activate before starting the case.
+#   conda create --prefix ./conda_env --file environment.txt
+#   conda activate ./conda_env
+conda-forge::python=3.13.*
+conda-forge::python-gmsh=4.15.2
+conda-forge::occt=7.9.3=novtk*
+conda-forge::mpich=5.0.*
+conda-forge::hdf5=1.14.6=mpi_mpich_*
+conda-forge::c-compiler
+conda-forge::cxx-compiler
+conda-forge::gcc=13.*
+conda-forge::gxx=13.*
+conda-forge::cmake=3.31.*
+conda-forge::ninja
+conda-forge::pkg-config

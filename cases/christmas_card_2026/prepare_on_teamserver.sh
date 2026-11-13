@@ -8,12 +8,9 @@ log_msg "--------------------------------------------------"
 log_msg "---------- Preparing Teamserver settings ---------"
 log_msg "--------------------------------------------------"
 
-# Purge currently loaded modules.
+# All dependencies come from the conda environment of environment.txt, which has to be active
+# (see README.md). Loaded modules would shadow its compilers, MPI, and Python in PATH.
 echo "Purge loaded modules"
 module purge
-
-# Load required modules.
-echo "Load required modules"
-module load t8code/t8code-development-gcc13-mpich-with-vtk-9.1-and-occ-7.6.0
 
 echo "Done preparing Teamserver"

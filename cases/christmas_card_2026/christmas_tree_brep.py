@@ -2,15 +2,19 @@
 """Christmas tree rocking in the wind, as the negative of the tree in a wind tunnel.
 
 Writes a series of BREP files <prefix>_0000.brep, <prefix>_0001.brep, ... Each file holds the
-fluid domain of a 2D wind tunnel with a Christmas tree
-cut out of it: tiered branches, a trunk standing on the tunnel floor, a star on top and
-baubles hanging from the branch tips. The wind blows in +x direction. The tree bends and rocks,
-each bauble swings in its own rhythm. The frames cover the given number of periods.
+fluid domain of a 2D wind tunnel with a Christmas tree cut out of it: tiered branches, a trunk
+standing on the tunnel floor, a star on a stem on top and baubles hanging from the branch tips.
+The wind blows in +x direction. The tree bends and rocks, each bauble swings in its own rhythm.
+The frames cover the given number of periods.
 
-All frames have the same topology and every curve keeps its parametrization, so a mesh of
-frame 0 can be morphed onto the other frames. Frame 0 is also meshed (<prefix>_0000.msh).
+A mesh of frame 0 (<prefix>_0000.msh) is morphed onto the other frames by keeping the curve
+parameters of its boundary nodes. Hence, all frames have the same topology and every curve
+has the same parameter range in all frames. This is needed for the current development state of
+t8codes mesh deformation module, but will not be a requirement in the future anymore.
+Therefore, this script is overly complicated and could be shortened significantly with future
+t8code versions.
 
-Requires the gmsh Python API (pip install gmsh).
+Requires the gmsh Python API (see environment.txt).
 """
 
 import argparse
@@ -22,10 +26,9 @@ import gmsh
 
 occ = gmsh.model.occ
 
-# Left half of the tree outline in rest position, from the tree top down to the trunk base.
+# Left half of the tree outline in rest position, from the tree top down to the floor.
 # Each entry is the control polygon of a cubic Bezier curve; the right half is mirrored.
-# The tree is 1 high and stands on the tunnel floor y = 0. The trunk pokes a bit below the
-# floor, so that cutting it out of the tunnel does not depend on coincident edges.
+# The tree is 1 high and stands on the tunnel floor y = 0.
 TREE_LEFT_HALF = [
   [(0.0, 1.0), (-0.04, 0.9), (-0.22, 0.8), (-0.3, 0.71)],         # top tier, upper edge
   [(-0.3, 0.71), (-0.23, 0.715), (-0.15, 0.73), (-0.085, 0.76)],   # top tier, lower edge
@@ -33,26 +36,24 @@ TREE_LEFT_HALF = [
   [(-0.37, 0.44), (-0.3, 0.445), (-0.21, 0.465), (-0.14, 0.49)],   # middle tier, lower edge
   [(-0.14, 0.49), (-0.19, 0.35), (-0.38, 0.27), (-0.45, 0.17)],    # bottom tier, upper edge
   [(-0.45, 0.17), (-0.33, 0.17), (-0.21, 0.17), (-0.09, 0.17)],    # bottom tier, lower edge
-  [(-0.09, 0.17), (-0.09, 0.09), (-0.09, 0.01), (-0.09, -0.07)],   # trunk
-  [(-0.09, -0.07), (-0.06, -0.07), (-0.03, -0.07), (0.0, -0.07)],  # trunk base, below the floor
+  [(-0.09, 0.17), (-0.09, 0.115), (-0.09, 0.055), (-0.09, 0.0)],   # trunk
 ]
 
 STAR_CENTER = 1.06
 STAR_OUTER_RADIUS = 0.12
 STAR_INNER_RADIUS = 0.065
-# The star sits on a stem reaching down into the tree. Its vertical sides meet the star and the
-# tree at much wider angles than the slanted tree top, which is easier to mesh. Heights are
-# relative to the star center.
+# The star sits on a stem reaching down to the tree top. Its vertical sides meet the star and
+# the tree at much wider angles than the slanted tree top, which is easier to mesh.
 STEM_HALF_WIDTH = 0.03
-STEM_BOTTOM = -0.28
-STEM_TOP = -0.02
 
-# Baubles on the left half, mirrored to the right: the tier (0 = top) whose tip they hang from,
-# the horizontal distance of the string from the tip and the string length to the ball center.
 # Share of the lean that comes from an even bend along the whole tree. The rest grows towards the
 # top. Without it, only the upper part of the tree would move and the trunk would stay rigid.
 TRUNK_FLEX = 0.3
 
+# Baubles on the left half, mirrored to the right: the tier (0 = top) whose tip they hang from,
+# the horizontal distance of the string from the tip and the string length to the ball center.
+# The string hangs from a pivot halfway between the upper and lower edge of the branch and is
+# attached to the lower edge.
 BAUBLES_LEFT_HALF = [(0, 0.045, 0.09), (1, 0.045, 0.09), (2, 0.045, 0.09)]
 # Every bauble swings in its own rhythm: (frequency, direction) relative to the rocking of the
 # tree, in the order of baubles(). All baubles are at their mean angle in frame 0, the meshed
@@ -63,12 +64,6 @@ STRING_WIDTH = 0.02
 BALL_RADIUS = 0.03
 
 
-def tree_outline():
-    """Control polygons of the closed tree outline, counterclockwise."""
-    right_half = [[(-x, y) for x, y in reversed(polygon)] for polygon in reversed(TREE_LEFT_HALF)]
-    return TREE_LEFT_HALF + right_half
-
-
 def bezier(polygon, t):
     """Point at parameter t of the Bezier curve with the given control polygon."""
     while len(polygon) > 1:
@@ -76,8 +71,18 @@ def bezier(polygon, t):
     return polygon[0]
 
 
-def height_at(polygon, x):
-    """Height of a Bezier curve that is monotonic in x at the position x."""
+def split_bezier(polygon, t):
+    """Control polygons of the two pieces of a Bezier curve split at parameter t."""
+    first, second = [polygon[0]], [polygon[-1]]
+    while len(polygon) > 1:
+        polygon = [((1 - t) * x0 + t * x1, (1 - t) * y0 + t * y1) for (x0, y0), (x1, y1) in zip(polygon, polygon[1:])]
+        first.append(polygon[0])
+        second.append(polygon[-1])
+    return first, second[::-1]
+
+
+def parameter_at(polygon, x):
+    """Parameter of a Bezier curve that is monotonic in x at the position x."""
     lower, upper = 0.0, 1.0
     increasing = polygon[-1][0] > polygon[0][0]
     for _ in range(60):
@@ -86,19 +91,118 @@ def height_at(polygon, x):
             lower = middle
         else:
             upper = middle
-    return bezier(polygon, lower)[1]
+    return lower
 
 
 def baubles():
-    """(anchor, string length) of all baubles; left half first, then the mirrored right half.
-
-    The string is fixed halfway between the upper and lower edge of the branch."""
+    """(pivot, string length) of all baubles; left half first, then the mirrored right half."""
     left_half = []
     for tier, distance, length in BAUBLES_LEFT_HALF:
         upper_edge, lower_edge = TREE_LEFT_HALF[2 * tier], TREE_LEFT_HALF[2 * tier + 1]
         x = upper_edge[-1][0] + distance
-        left_half.append(((x, (height_at(upper_edge, x) + height_at(lower_edge, x)) / 2), length))
+        y_upper = bezier(upper_edge, parameter_at(upper_edge, x))[1]
+        y_lower = bezier(lower_edge, parameter_at(lower_edge, x))[1]
+        left_half.append(((x, (y_upper + y_lower) / 2), length))
     return left_half + [((-x, y), length) for (x, y), length in left_half]
+
+
+def star_corner(corner):
+    """Corner of the star in its own frame, counterclockwise from the top (corner 0)."""
+    radius = STAR_OUTER_RADIUS if corner % 2 == 0 else STAR_INNER_RADIUS
+    angle = math.pi / 2 + corner * math.pi / 5
+    # Rounded, so that the top corner is exactly on the axis and equals its mirror image.
+    return round(radius * math.cos(angle), 12) + 0.0, round(radius * math.sin(angle), 12) + 0.0
+
+
+# A point of the outline is described in the frame of the part it is fixed to:
+#   ("tree", x, y):       rest position on the tree, moved by bend()
+#   ("star", x, y):       relative to the star center, moved rigidly with the star
+#   ("bauble", i, x, y):  relative to the pivot of bauble i, moved rigidly with it
+#   ("fixed", x, y):      not moving
+# A curve is (kind, [points], weights). A "bezier" curve, given by its control points, is
+# parametrized by [0, 1] in all frames. A straight "bezier" curve with two points can connect
+# two parts that move differently, which changes its length. A "line" is parametrized by its
+# arc length, so it has to belong to a rigid part. A "rational" curve is a rational quadratic
+# Bezier curve with the given weights, e.g., a circular arc. It is also parametrized by [0, 1],
+# in contrast to the circle arcs of OpenCASCADE, whose parameter is the angle with respect to
+# the x-axis, which changes when a rigid part rotates.
+
+
+def circular_arc(part, center, radius, start_angle, end_angle):
+    """Circular arc (less than pi) of a rigid part, counterclockwise from the start to the end angle."""
+    def point(angle, distance):
+        return (*part, round(center[0] + distance * math.cos(angle), 12) + 0.0,
+                round(center[1] + distance * math.sin(angle), 12) + 0.0)
+    half_angle = (end_angle - start_angle) / 2
+    middle = point(start_angle + half_angle, radius / math.cos(half_angle))
+    return ("rational", [point(start_angle, radius), middle, point(end_angle, radius)], [1.0, math.cos(half_angle), 1.0])
+
+
+def left_half_outline():
+    """Curves of the left half of the outline in rest position, from the top of the star down
+    to the trunk on the floor."""
+    def tree_curve(polygon):
+        return ("bezier", [("tree", *point) for point in polygon], None)
+
+    curves = []
+    # Star from its top to the stem, counterclockwise
+    for corner in range(4):
+        curves.append(("line", [("star", *star_corner(corner)), ("star", *star_corner(corner + 1))], None))
+    (x4, y4), (x5, y5) = star_corner(4), star_corner(5)
+    stem_on_star = ("star", -STEM_HALF_WIDTH, y4 + (y5 - y4) * (-STEM_HALF_WIDTH - x4) / (x5 - x4))
+    curves.append(("line", [("star", x4, y4), stem_on_star], None))
+    # Stem down to the tree top; the tip of the tree top is hidden in it
+    top_edge = TREE_LEFT_HALF[0]
+    _, top_edge = split_bezier(top_edge, parameter_at(top_edge, -STEM_HALF_WIDTH))
+    curves.append(("bezier", [stem_on_star, ("tree", *top_edge[0])], None))
+    # Tiers with the baubles hanging from the lower edges
+    for tier in range(3):
+        curves.append(tree_curve(top_edge if tier == 0 else TREE_LEFT_HALF[2 * tier]))
+        lower_edge = TREE_LEFT_HALF[2 * tier + 1]
+        (pivot_x, _), length = baubles()[tier]
+        half_width = STRING_WIDTH / 2
+        # The piece of the lower edge between the two ends of the string is hidden in it.
+        to_string, lower_edge = split_bezier(lower_edge, parameter_at(lower_edge, pivot_x - half_width))
+        curves.append(tree_curve(to_string))
+        string_on_tree = [("tree", *lower_edge[0])]
+        _, lower_edge = split_bezier(lower_edge, parameter_at(lower_edge, pivot_x + half_width))
+        string_on_tree.append(("tree", *lower_edge[0]))
+        # The string is attached to the lower edge and meets the ball on its circle, which is
+        # split at its bottom.
+        string_angle = math.asin(half_width / BALL_RADIUS)
+        bauble = ("bauble", tier)
+        arcs = [circular_arc(bauble, (0.0, -length), BALL_RADIUS, math.pi / 2 + string_angle, 1.5 * math.pi),
+                circular_arc(bauble, (0.0, -length), BALL_RADIUS, 1.5 * math.pi, 2.5 * math.pi - string_angle)]
+        curves += [("bezier", [string_on_tree[0], arcs[0][1][0]], None), *arcs,
+                   ("bezier", [arcs[1][1][-1], string_on_tree[1]], None)]
+        curves.append(tree_curve(lower_edge))
+    curves.append(tree_curve(TREE_LEFT_HALF[-1]))
+    return curves
+
+
+def mirror_point(point):
+    if point[0] == "bauble":
+        return ("bauble", point[1] + len(BAUBLES_LEFT_HALF), -point[2] + 0.0, point[3])
+    return (point[0], -point[1] + 0.0, point[2])
+
+
+def reverse_curve(curve):
+    kind, points, weights = curve
+    return (kind, points[::-1], weights[::-1] if weights else None)
+
+
+def mirror_curve(curve):
+    """Curve mirrored at the tree axis and reversed."""
+    kind, points, weights = reverse_curve(curve)
+    return (kind, [mirror_point(point) for point in points], weights)
+
+
+def outline():
+    """Curves of the outline, from the left end of the trunk on the floor up to the top of
+    the star and down to the right end of the trunk, all in this direction."""
+    left_up = [reverse_curve(curve) for curve in reversed(left_half_outline())]
+    right_down = [mirror_curve(curve) for curve in reversed(left_up)]
+    return left_up + right_down
 
 
 def tangent_angle(height, lean):
@@ -131,73 +235,81 @@ def bend(x, y, lean):
     return axis_x + x * math.cos(angle), axis_y - x * math.sin(angle)
 
 
-def add_tree(lean):
-    """Face of the bent tree body and trunk."""
-    outline = tree_outline()
-    first = occ.addPoint(*bend(*outline[0][0], lean), 0)
-    start = first
-    curves = []
-    for index, polygon in enumerate(outline):
-        inner = [occ.addPoint(*bend(x, y, lean), 0) for x, y in polygon[1:-1]]
-        end = first if index == len(outline) - 1 else occ.addPoint(*bend(*polygon[-1], lean), 0)
-        curves.append(occ.addBSpline([start] + inner + [end]))
-        # The inner control points are not on the curve and would end up as loose vertices.
-        occ.remove([(0, point) for point in inner])
-        start = end
-    return occ.addPlaneSurface([occ.addCurveLoop(curves)])
+def rigid(x, y, angle, origin):
+    """Point (x, y) of a rigid part rotated counterclockwise by angle and moved to origin."""
+    return (origin[0] + x * math.cos(angle) - y * math.sin(angle),
+            origin[1] + x * math.sin(angle) + y * math.cos(angle))
 
 
-def add_star(lean):
-    """Five-pointed star on a stem on the tree top, moving rigidly with it.
-
-    Like the baubles, it is built at the origin and then moved, so that its curves keep the same
-    parametrization in all frames."""
-    points = []
-    for corner in range(10):
-        radius = STAR_OUTER_RADIUS if corner % 2 == 0 else STAR_INNER_RADIUS
-        angle = math.pi / 2 + corner * math.pi / 5
-        points.append(occ.addPoint(radius * math.cos(angle), radius * math.sin(angle), 0))
-    lines = [occ.addLine(points[corner], points[(corner + 1) % 10]) for corner in range(10)]
-    star = occ.addPlaneSurface([occ.addCurveLoop(lines)])
-    stem = occ.addRectangle(-STEM_HALF_WIDTH, STEM_BOTTOM, 0, 2 * STEM_HALF_WIDTH, STEM_TOP - STEM_BOTTOM)
-    parts = [(2, star), (2, stem)]
-    occ.rotate(parts, 0, 0, 0, 0, 0, 1, -tangent_angle(STAR_CENTER, lean))
-    occ.translate(parts, *bend(0.0, STAR_CENTER, lean), 0)
-    return parts
-
-
-def add_bauble(anchor, length, swing):
-    """String and ball of a bauble hanging from `anchor`, swung by `swing` out of the vertical.
-
-    Both are built hanging straight down from the origin and then moved rigidly, so their curves
-    keep the same parametrization in all frames. The seam of the ball is at its bottom."""
-    string = occ.addRectangle(-STRING_WIDTH / 2, -length, 0, STRING_WIDTH, length)
-    ball = occ.addDisk(0, -length, 0, BALL_RADIUS, BALL_RADIUS, zAxis=[0, 0, 1], xAxis=[0, -1, 0])
-    parts = [(2, string), (2, ball)]
-    occ.rotate(parts, 0, 0, 0, 0, 0, 1, swing)
-    occ.translate(parts, anchor[0], anchor[1], 0)
-    return string, ball
+def place(point, lean, swings):
+    """Position of an outline point in the frame with the given lean and bauble swings."""
+    kind = point[0]
+    if kind == "tree":
+        return bend(point[1], point[2], lean)
+    if kind == "star":
+        # The star is attached to the tree axis and tilts with it.
+        return rigid(point[1], point[2], -tangent_angle(STAR_CENTER, lean), bend(0.0, STAR_CENTER, lean))
+    if kind == "bauble":
+        pivot, _ = baubles()[point[1]]
+        return rigid(point[2], point[3], swings[point[1]], bend(*pivot, lean))
+    return point[1], point[2]
 
 
 def build_frame(lean, swings, args):
     """Build the fluid domain of one frame in the gmsh model. Return the smallest gap between a
-    ball and the tree or the floor."""
-    tree = add_tree(lean)
-    balls = []
-    obstacles = [(2, tree)] + add_star(lean)
-    for (anchor, length), swing in zip(baubles(), swings):
-        string, ball = add_bauble(bend(*anchor, lean), length, swing)
-        balls.append(ball)
-        obstacles += [(2, string), (2, ball)]
-    min_gap = min(min(occ.getDistance(2, ball, 2, tree)[0], occ.getBoundingBox(2, ball)[1]) for ball in balls)
+    ball and the rest of the tree or the floor."""
+    point_tags = {}
 
+    def point_tag(point):
+        if point not in point_tags:
+            point_tags[point] = occ.addPoint(*place(point, lean, swings), 0)
+        return point_tags[point]
+
+    # The inner control points are not on the curves and are removed afterwards, otherwise they
+    # would end up as loose vertices.
+    auxiliary = []
+
+    def add_curve(curve):
+        kind, points, weights = curve
+        if kind == "line":
+            return occ.addLine(point_tag(points[0]), point_tag(points[1]))
+        inner = [occ.addPoint(*place(point, lean, swings), 0) for point in points[1:-1]]
+        auxiliary.extend(inner)
+        return occ.addBSpline([point_tag(points[0])] + inner + [point_tag(points[-1])], degree=len(points) - 1,
+                              weights=weights or [])
+
+    tree_curves = outline()
+    tree_tags = [add_curve(curve) for curve in tree_curves]
+
+    # The tunnel, whose floor is interrupted by the trunk
     x_min, x_max, y_max = args.tunnel
-    tunnel = occ.addRectangle(x_min, 0, 0, x_max - x_min, y_max)
-    fluid, _ = occ.cut([(2, tunnel)], obstacles)
-    if len(fluid) != 1:
-        sys.exit(f"Expected one connected fluid domain, got {len(fluid)} pieces. Is the tree outside the tunnel?")
+    trunk_left, trunk_right = tree_curves[0][1][0], tree_curves[-1][1][-1]
+    corners = [("fixed", x_max, 0.0), ("fixed", x_max, y_max), ("fixed", x_min, y_max), ("fixed", x_min, 0.0)]
+    tunnel_tags = [occ.addLine(point_tag(start), point_tag(end))
+                   for start, end in zip([trunk_right] + corners, corners + [trunk_left])]
+    fluid = occ.addPlaneSurface([occ.addCurveLoop(tree_tags + tunnel_tags)])
+    occ.remove([(0, point) for point in auxiliary])
+
+    # Smallest gap between a ball and the rest of the tree (except its own string) or the floor
+    min_gap = math.inf
+    for bauble in range(len(baubles())):
+        own = [tag for tag, curve in zip(tree_tags, tree_curves)
+               if any(point[:2] == ("bauble", bauble) for point in curve[1])]
+        balls = [tag for tag, curve in zip(tree_tags, tree_curves) if curve[0] == "rational" and tag in own]
+        for ball in balls:
+            # Only curves near the ball can be closer than its distance to the floor.
+            ball_x_min, ball_y_min, _, ball_x_max, ball_y_max, _ = occ.getBoundingBox(1, ball)
+            min_gap = min(min_gap, ball_y_min)
+            for other in tree_tags:
+                if other in own:
+                    continue
+                box = occ.getBoundingBox(1, other)
+                if (box[0] < ball_x_max + min_gap and box[3] > ball_x_min - min_gap
+                        and box[1] < ball_y_max + min_gap and box[4] > ball_y_min - min_gap):
+                    min_gap = min(min_gap, occ.getDistance(1, ball, 1, other)[0])
+
     # Everything above is built with a tree that is 1 high without the star; scale it to meters.
-    occ.dilate(fluid, 0, 0, 0, scale(args), scale(args), scale(args))
+    occ.dilate([(2, fluid)], 0, 0, 0, scale(args), scale(args), scale(args))
     occ.synchronize()
     return min_gap * scale(args)
 
@@ -210,6 +322,12 @@ def scale(args):
 def topology_signature():
     """Entity tags and types of the current model, which have to agree between all frames."""
     return [(dim, tag, gmsh.model.getType(dim, tag)) for dim in range(4) for _, tag in gmsh.model.getEntities(dim)]
+
+
+def parametrization_signature():
+    """Parameter ranges of all curves of the current model, which have to agree between all frames."""
+    return [(tag, *(bound[0] for bound in gmsh.model.getParametrizationBounds(1, tag)))
+            for _, tag in gmsh.model.getEntities(1)]
 
 
 def mesh_frame(msh_file, args):
@@ -249,10 +367,42 @@ def mesh_frame(msh_file, args):
     # sharp tips of the star and the branches than recombination and subdivision.
     gmsh.option.setNumber("Mesh.Algorithm", 11)
     gmsh.model.mesh.generate(2)
-    # Store the parametric coordinates of the boundary nodes on the CAD curves/surfaces.
+    # Store the parametric coordinates of the boundary nodes on the CAD curves.
     gmsh.option.setNumber("Mesh.SaveParametric", 1)
     gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
+    gmsh.option.setNumber("Mesh.Binary", 0)
     gmsh.write(msh_file)
+    strip_surface_parameters(msh_file)
+
+
+def strip_surface_parameters(msh_file):
+    """Remove the parametric coordinates of the nodes inside the fluid domain from an ASCII
+    msh 4.1 file, keeping those of the nodes on the curves.
+
+    t8code links a tree whose nodes all have parametric coordinates on a CAD surface to this
+    surface and computes its geometry from these coordinates instead of its vertices. The mesh
+    deformation (t8_cmesh_deform_to_brep) moves the vertices but keeps the parametric
+    coordinates, so the inner nodes would not move at all and the elements next to the moving
+    tree would be crushed. The fluid domain is plane, so its trees do not need the surface:
+    without it, their geometry is the bilinear map of their vertices plus the displacement of
+    their edges on the curves of the tree outline."""
+    with open(msh_file) as file:
+        lines = file.read().split("\n")
+    start = lines.index("$Nodes")
+    output = lines[:start + 2]
+    line = start + 2
+    for _ in range(int(lines[start + 1].split()[0])):
+        dim, tag, parametric, num_nodes = (int(value) for value in lines[line].split())
+        strip = parametric and dim == 2
+        output.append(f"{dim} {tag} {0 if strip else parametric} {num_nodes}")
+        output += lines[line + 1:line + 1 + num_nodes]  # node tags
+        coordinates = lines[line + 1 + num_nodes:line + 1 + 2 * num_nodes]
+        output += [" ".join(coordinate.split()[:3]) for coordinate in coordinates] if strip else coordinates
+        line += 1 + 2 * num_nodes
+    if lines[line] != "$EndNodes":
+        sys.exit(f"{msh_file}: unexpected format of the $Nodes section")
+    with open(msh_file, "w") as file:
+        file.write("\n".join(output + lines[line:]))
 
 
 def main():
@@ -266,8 +416,10 @@ def main():
                         help="amplitude of the rocking in degrees (default: 9)")
     parser.add_argument("--swing", type=float, default=0.0,
                         help="mean angle of the bauble strings against the vertical in degrees (default: 0)")
-    parser.add_argument("--swing-amplitude", type=float, default=12.0,
-                        help="amplitude of the bauble swinging in degrees (default: 12)")
+    # With larger amplitudes, the right bauble of the top tier comes so close to the middle tier
+    # that the morphed mesh of frame 0 gets inverted elements there.
+    parser.add_argument("--swing-amplitude", type=float, default=9.0,
+                        help="amplitude of the bauble swinging in degrees (default: 9)")
     parser.add_argument("--height", type=float, default=STAR_CENTER + STAR_OUTER_RADIUS,
                         help="height of the tree including the star in m; all other lengths are given relative to the "
                         "height of the tree without the star (default: 1.18, i.e., 1 m without the star)")
@@ -283,6 +435,7 @@ def main():
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 0)
     reference_signature = None
+    reference_parametrization = None
     for frame in range(round(args.frames * args.periods)):
         phase = 2 * math.pi * frame / args.frames
         lean = math.radians(args.lean + args.lean_amplitude * math.sin(phase))
@@ -293,6 +446,8 @@ def main():
 
         gmsh.clear()
         min_gap = build_frame(lean, swings, args)
+        if min_gap <= 0.0:
+            sys.exit(f"Frame {frame}: a bauble touches the tree; reduce --swing/--swing-amplitude or --lean-amplitude.")
         prefix = os.path.join(args.output_dir, f"{args.prefix}_{frame:04d}")
         gmsh.write(prefix + ".brep")
 
@@ -300,11 +455,18 @@ def main():
         gmsh.clear()
         gmsh.merge(prefix + ".brep")
         signature = topology_signature()
+        parametrization = parametrization_signature()
         if reference_signature is None:
             reference_signature = signature
+            reference_parametrization = parametrization
         elif signature != reference_signature:
-            sys.exit(f"{prefix}.brep: topology differs from frame 0, the frames cannot be used for mesh deformation. "
-                     "Probably a bauble touches the tree; reduce --swing/--swing-amplitude or --lean-amplitude.")
+            sys.exit(f"{prefix}.brep: topology differs from frame 0, the frames cannot be used for mesh deformation.")
+        else:
+            differing = [(current, reference) for current, reference in zip(parametrization, reference_parametrization)
+                         if any(abs(a - b) > 1e-9 * max(1.0, abs(b)) for a, b in zip(current, reference))]
+            if differing:
+                sys.exit(f"{prefix}.brep: parameter ranges of curves differ from frame 0, the frames cannot be used "
+                         f"for mesh deformation: {differing} (tag, start, end)")
         if frame == 0:
             mesh_frame(prefix + ".msh", args)
         print(f"{prefix}.brep: lean {math.degrees(lean):5.1f} deg, smallest gap bauble-tree/floor {min_gap:.3f}")

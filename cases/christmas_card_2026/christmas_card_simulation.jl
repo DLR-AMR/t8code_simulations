@@ -53,10 +53,14 @@ volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                  volume_flux_fv = flux_lax_friedrichs)
 solver = DGSEM(basis, flux_lax_friedrichs, volume_integral)
 
-# The geometry of the boundary is taken from christmas_tree_0000.brep. The AMR refines
-# up to two levels above this initial refinement level.
+# The geometry (created by christmas_tree_brep.py, see run.sh) is in geometry/: the mesh
+# christmas_tree_0000.msh of the tree in its first position and the CAD geometry
+# christmas_tree_0000.brep, christmas_tree_0001.brep, ... of all its positions. The
+# boundary of the mesh is taken from christmas_tree_0000.brep. The AMR refines up to two
+# levels above this initial refinement level.
+geometry_folder = joinpath(@__DIR__, "geometry")
 initial_refinement_level = 0
-mesh = T8codeMesh("christmas_tree_0000.msh", 2; polydeg = 2,
+mesh = T8codeMesh(joinpath(geometry_folder, "christmas_tree_0000.msh"), 2; polydeg = 2,
                   initial_refinement_level = initial_refinement_level,
                   use_cad_geometry = true)
 
@@ -71,29 +75,48 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver;
 ###############################################################################
 # ODE solvers
 
-# The 3 m high tree rocks with 1 Hz.
-# The .brep files cover 1.5 periods of the rocking with 256 frames per period, so the
-# deformation interval 1 / 256 s and all output times below are exact binary fractions. The
-# deformation starts at t_start, once the flow around the resting tree has converged, and
-# ends after the 1.5 periods, of which a full period can be looped.
+# The 3 m high tree rocks with 1 Hz. The .brep files cover 1.5 periods of the rocking with
+# 256 frames per period, so the deformation interval 1 / 256 s and all times below are exact
+# binary fractions. The gif shows one period with 32 frames.
 bending_frequency = 1.0 # Hz
+period = 1 / bending_frequency
 frames_per_period = 256
-dt_deformation = 1 / (bending_frequency * frames_per_period)
-t_start = 1.2
-tspan = (0.0, t_start + 1.5 / bending_frequency)
+dt_deformation = period / frames_per_period
+gif_frames_per_period = 32
+dt_gif_frame = period / gif_frames_per_period
+
+# The simulation has three stages:
+# 1. t in [0, t_start]: the flow around the resting tree develops. The resting tree is
+#    in its first position, i.e., the one of the mesh. t_start is long enough that the
+#    pressure waves of the impulsive start have left the part of the domain shown in the gif:
+#    in a square of 4.5 m around the tree, the mean deviation of the density from the free
+#    stream drops within 0.3 s to a level at which it stays.
+# 2. t in [t_start, t_gif]: the tree rocks for half a period, so that the flow in the
+#    gif (in particular the wake) follows the rocking.
+# 3. t in [t_gif, t_gif + period]: the tree rocks for one more period. Only this stage is
+#    saved, one frame every dt_gif_frame. Since the motion is periodic, the gif loops
+#    seamlessly from the last frame back to the first.
+t_start = 16 * dt_gif_frame # 0.5 s
+t_gif = t_start + period / 2
+tspan = (0.0, t_gif + period)
 ode = semidiscretize(semi, tspan)
 
 # Callbacks
 
 summary_callback = SummaryCallback()
 
-analysis_callback = AnalysisCallback(semi, interval = 100)
+analysis_callback = AnalysisCallback(semi, interval = 1000)
 
-# A frame every eigth deformation gives 32 frames per period of the rocking
-save_solution = SaveSolutionCallback(dt = 8 * dt_deformation,
-                                     save_initial_solution = true,
-                                     save_final_solution = true,
+# Save the frames of stage 3: the PeriodicCallback stops the time integration at
+# t_gif + k * dt_gif_frame. Its final stop at t_gif + period is not saved, since it would be
+# the same frame as the first one.
+save_solution = SaveSolutionCallback(dt = dt_gif_frame,
+                                     save_initial_solution = false,
+                                     save_final_solution = false,
                                      solution_variables = cons2prim)
+save_solution = Trixi.PeriodicCallback(save_solution.affect!.affect!, dt_gif_frame;
+                                       phase = t_gif, save_positions = (false, false),
+                                       initialize = Trixi.initialize_save_cb!)
 
 # The density hardly varies, so the AMR refines where the velocity deviates from the free
 # stream, i.e., around the tree and in its wake, which follow the rocking tree.
@@ -114,9 +137,9 @@ amr_callback = AMRCallback(semi, amr_controller,
                            adapt_initial_condition_only_refine = true)
 
 # Deform the mesh to christmas_tree_0000.brep, christmas_tree_0001.brep, ... one after
-# another, starting at t_start. The globally supported thin plate splines (tps) keep the
-# elements next to the moving tree valid.
-mesh_deformation_callback = MeshDeformationCallback(brep_folder = ".",
+# another, starting at t_start. The globally supported thin plate splines (tps) move the
+# inner vertices smoothly along with the tree.
+mesh_deformation_callback = MeshDeformationCallback(brep_folder = geometry_folder,
                                                     t_start = t_start,
                                                     dt = dt_deformation,
                                                     rbf_type = :tps)
@@ -131,6 +154,6 @@ callbacks = CallbackSet(summary_callback, analysis_callback, mesh_deformation_ca
 ###############################################################################
 # run the simulation
 sol = solve(ode, SSPRK54(thread = Trixi.Threaded());
-            dt = 1.0, # solve needs some value here but it will be overwritten by the stepsize_callback
+            dt = 1, # solve needs some value here but it will be overwritten by the stepsize_callback
             maxiters = typemax(Int), # the simulation needs many time steps
-            ode_default_options()..., callback = callbacks);
+            save_everystep = false, callback = callbacks);
