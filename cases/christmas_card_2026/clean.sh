@@ -19,6 +19,9 @@ rm -rf build
 rm -rf install
 rm -rf libs
 
+# Remove the geometry
+rm -rf geometry
+
 # Remove the simulation output
 rm -rf out
 
