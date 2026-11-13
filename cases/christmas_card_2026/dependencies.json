@@ -1,0 +1,19 @@
+{
+  "dependencies": [
+    {
+      "name": "t8code",
+      "url": "https://github.com/DLR-AMR/t8code.git",
+      "commit": "0e7153a001965416888725681c699fdbdd44808d"
+    },
+    {
+      "name": "t8code_jl",
+      "url": "https://github.com/DLR-AMR/T8code.jl.git",
+      "commit": "7496923e078e2f7f09b616d223b041f05360e7b8"
+    },
+    {
+      "name": "trixi_jl",
+      "url": "https://github.com/sandro-elsweijer/Trixi.jl.git",
+      "commit": "4d785ab8f1a249dd7c7830427c0d10614e6a2716"
+    }
+  ]
+}
