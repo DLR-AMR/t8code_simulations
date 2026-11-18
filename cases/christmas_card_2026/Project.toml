@@ -1,0 +1,22 @@
+[deps]
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+MPIPreferences = "3da0fdf6-3ccc-4f1b-acd9-58baa6c99267"
+OrdinaryDiffEqSSPRK = "669c94d9-1f4b-4b64-b377-1aa079aa2388"
+P4est = "7d669430-f675-4ae7-b43e-fab78ec5a902"
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+T8code = "d0cc0030-9a40-4274-8435-baadcfd54fa1"
+Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
+Trixi2Vtk = "bc1476a1-1ca6-4cc3-950b-c312b255ff95"
+
+# The MPI JLLs of the common system MPI ABIs (MPICH and OpenMPI), whose libraries run.sh
+# points to the system MPI. Setting their preferences adds
+# them here anyway, so listing them keeps this file unchanged by run.sh.
+[extras]
+MPICH_jll = "7cb0a576-ebde-5e09-9194-50597f1243b4"
+OpenMPI_jll = "fe0851c0-eecd-5654-98d4-656369965a5c"
+
+[sources.T8code]
+path = "libs/t8code_jl-src"
+
+[sources.Trixi]
+path = "libs/trixi_jl-src"
