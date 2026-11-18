@@ -18,6 +18,11 @@ set(OPTIONAL_FILES_PER_CASE
 # we want to run by giving its case folder.
 set(CASE_DIR "UNSET" CACHE STRING "Example case to run")
 
+# Set ON_TEAMSERVER when running on the AMR Teamserver. Only then is the
+# Teamserver-specific preparation (e.g., loading modules) run; on any other
+# system the case's dependencies have to be provided by the user.
+option(ON_TEAMSERVER "Run on the AMR Teamserver (sources the case's prepare_on_teamserver.sh)" OFF)
+
 # Simple sanity checks for chosen CASE_DIR
 if(CASE_DIR STREQUAL "UNSET")
   message(FATAL_ERROR "Missing -DCASE_DIR argument!")
@@ -67,16 +72,19 @@ fetch_case_dependencies(
     "${CASE_DIR}/dependencies.json"
 )
 
-# Prepare the AMR-Teamserver-related settings like loading modules etc.
+# Prepare the AMR-Teamserver-related settings like loading modules etc. and run
+# the main script of the chosen folder. The preparation script is sourced in the
+# same shell that starts run.sh, so the environment it sets up is passed on to run.sh;
+# running it in a separate process would discard it. With 'bash -e', a failing
+# command in the preparation script aborts the case.
+if(ON_TEAMSERVER)
+    set(CASE_COMMAND "source ./prepare_on_teamserver.sh && bash ./run.sh")
+else()
+    message(STATUS "Skipping prepare_on_teamserver.sh (ON_TEAMSERVER=OFF).")
+    set(CASE_COMMAND "bash ./run.sh")
+endif()
 execute_process(
-    COMMAND bash prepare_on_teamserver.sh
-    WORKING_DIRECTORY "${CASE_DIR}"
-    RESULT_VARIABLE result
-)
-
-# Run the main script of the chosen folder.
-execute_process(
-    COMMAND bash run.sh
+    COMMAND bash -e -c "${CASE_COMMAND}"
     WORKING_DIRECTORY "${CASE_DIR}"
     RESULT_VARIABLE result
 )
@@ -84,6 +92,12 @@ execute_process(
 # Check whether running the case was successful.
 if(result EQUAL 0)
     message(STATUS "Successfully ran case '${CASE_DIR}'.")
-else()
+elseif(ON_TEAMSERVER)
     message(FATAL_ERROR "Running '${CASE_DIR}' failed: ${result}")
+else()
+    message(FATAL_ERROR
+        "Running '${CASE_DIR}' failed: ${result}\n"
+        "Make sure the case's dependencies (see the case's README.md) are available, "
+        "or pass -DON_TEAMSERVER=ON when running on the AMR Teamserver."
+    )
 endif()
