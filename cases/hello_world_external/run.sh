@@ -11,6 +11,11 @@ log_msg "##################################################\n"
 # Export install directory
 export CASE_INSTALL_DIR=$(pwd)/install
 
+# Do not pull in the deprecated OpenMPI C++ bindings via mpi.h. Otherwise, C++ code
+# including mpi.h has to be linked against libmpi_cxx, which only the mpicxx wrapper does.
+# The define has no effect without MPI or with other MPI implementations.
+export CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }-DOMPI_SKIP_MPICXX"
+
 log_msg "\n##################################################"
 log_msg "### Step 1: Build and install t8code"
 log_msg "##################################################"
@@ -19,7 +24,9 @@ cd libs/t8code-build
 log_msg "--------------------------------------------------"
 log_msg "(1.a) Run cmake"
 log_msg "--------------------------------------------------"
-cmake ../t8code-src/ -GNinja -DCMAKE_INSTALL_PREFIX=$CASE_INSTALL_DIR
+# Build t8code, libsc, and p4est as static libraries, so the executables cannot pick up
+# other installations of them at runtime, e.g., via LD_LIBRARY_PATH.
+cmake ../t8code-src/ -GNinja -DCMAKE_INSTALL_PREFIX=$CASE_INSTALL_DIR -DT8CODE_BUILD_AS_SHARED_LIBRARY=OFF -DBUILD_SHARED_LIBS=OFF
 
 log_msg "--------------------------------------------------"
 log_msg "(1.b) Run ninja"
