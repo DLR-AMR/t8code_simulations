@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    {
+      "name": "t8code_GPU_advect_experiments",
+      "url": "https://github.com/DLR-AMR/t8code_GPU_advect_experiments.git",
+      "commit": "2464b4fc56615d662f486adba467fa650b96635c"
+    }
+  ]
+}
