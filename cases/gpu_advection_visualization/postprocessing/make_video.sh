@@ -6,6 +6,7 @@
 # stride > 1 renders only every stride-th time step (e.g. for a quick test).
 # Render options are passed to advect_scene.py, e.g. --inset for the zoom into the refinement band.
 # The option --last=N (not passed on) ends the video at output step N, e.g. after half of the run.
+# PVPYTHON selects the pvpython executable (default: /usr/bin/pvpython if it exists, else pvpython from PATH).
 # Writes <out_dir>/frames/frame_NNN.png, <out_dir>/advect_hybrid_cube.mp4 and
 # <out_dir>/advect_hybrid_cube_still.png (middle rendered step).
 set -e
@@ -24,7 +25,10 @@ for option in "${@:6}"; do
   esac
 done
 script_dir=$(cd "$(dirname "$0")" && pwd)
-pvpython="env -u LD_LIBRARY_PATH -u PYTHONPATH LP_NUM_THREADS=4 /usr/bin/pvpython --force-offscreen-rendering"
+if [ -z "${PVPYTHON:-}" ]; then
+  if [ -x /usr/bin/pvpython ]; then PVPYTHON=/usr/bin/pvpython; else PVPYTHON=pvpython; fi
+fi
+pvpython="env -u LD_LIBRARY_PATH -u PYTHONPATH LP_NUM_THREADS=4 $PVPYTHON --force-offscreen-rendering"
 
 num_steps=$(ls "$data_dir" | grep -c -E '^advection_[0-9]+\.pvtu$')
 last=${last:-$(( num_steps - 1 ))}

@@ -13,27 +13,28 @@ is offloaded to the GPU with OpenMP `target`.
   is transported in the 3D flow field `-u 3` through the unit cube.
   The mesh is refined adaptively in a band around the interface $\varphi = 0$, and is coarsened again behind it.
 * **Mesh:** The unit cube is a hybrid coarse mesh (`-e 8`) made of hexahedra, tetrahedra and prisms.
-* **Result:** An MP4 video for a LinkedIn post (1080×1350, 4:5, 24 fps, 10 s, H.264/yuv420p), a still image from the
-  middle of the run and a ParaView state file (`.pvsm`) to open the same scene in the ParaView GUI.
+* **Result:** An MP4 video for a LinkedIn post (1080×1350, 4:5, 24 fps, 5 s, H.264/yuv420p) of the first half of the
+  run, a still image and a ParaView state file (`.pvsm`) to open the same scene in the ParaView GUI.
 
 > [!IMPORTANT]
-> **The case runs on the CPU, with 20 MPI ranks.**
-> It builds the advection example without offloading (`OFFLOAD_ARCH=NONE`), so it runs on the Teamserver, which has
-> no usable GPU. The case run is reproducible: two runs gave the same element counts in every output step, identical
-> solution values in the VTU files (checked for output step 59), and an identical rendered image of output step 30.
+> **The case runs on the CPU, with 10 MPI ranks.**
+> It builds the advection example without offloading (`OFFLOAD_ARCH=NONE`), so it needs no GPU. It runs on the
+> Teamserver with its modules, or on any Linux machine with the tools listed in [Dependencies](#dependencies)
+> (see [Running without the Teamserver modules](#running-without-the-teamserver-modules)).
+> The video of the case is made from the run `e8u3l4r4c01b15t1a10v100` (see [Simulation parameters](#simulation-parameters)).
 >
-> **The original video was computed on a GPU** (aac7, 1 MPI rank on 1 GPU) with different parameters and more
-> output steps. It is stored separately. See [GPU run on aac7](#gpu-run-on-aac7) to repeat that run (optional).
-> The case and the GPU run use the same scene (cutting plane, camera, colors).
+> **An earlier video was computed on a GPU** (aac7, 1 MPI rank on 1 GPU) with different parameters.
+> It is stored separately. See [GPU run on aac7](#gpu-run-on-aac7) to repeat that run (optional).
+> The case and the GPU run use the same scene (cutting plane, camera, colors, texts).
 
 ## What the video shows
 
 <p align="center">
-  <img src="images/start.png" width="260" alt="Time step 0">
-  <img src="images/middle.png" width="260" alt="Time step 30">
-  <img src="images/end.png" width="260" alt="Time step 55">
+  <img src="images/start.png" width="260" alt="Output step 0">
+  <img src="images/middle.png" width="260" alt="Output step 15">
+  <img src="images/end.png" width="260" alt="Output step 29">
 </p>
-<p align="center"><em>Output steps 0, 30 and 55 of 60.</em></p>
+<p align="center"><em>Output steps 0, 15 and 29: start, middle and end of the video (first half of the run, steps 0 … 58).</em></p>
 
 * The mesh is cut by a diagonal plane with normal (0, 1, 1) through the path of the sphere center.
   A *crinkle clip* removes whole elements, so you see the actual elements, not cut polygons.
@@ -41,20 +42,24 @@ is offloaded to the GPU with OpenMP `target`.
 * The elements are colored by the numerical solution $\varphi$ (blue: inside, red: outside), with a fixed symmetric
   color range of ±0.25 for all time steps.
 * The light surface is the interface $\varphi = 0$ on the removed side of the plane. Therefore the half sphere sits on
-  the cut face. Around it you see the band of fine elements (refinement level up to 7) as a ring on the cut face.
+  the cut face. Around it you see the band of fine elements (refinement level up to 8) as a ring on the cut face.
 * The window in the lower left corner zooms (10 times) into the refinement band on the cut face at the upper left of
   the sphere. The elements become finer towards the interface like a staircase. At the start, the zoom shows hexahedra.
   Later the sphere moves into the prismatic part of the mesh, and the zoom shows prisms.
   In the zoom, the sphere is semi-transparent, so the elements behind it stay visible.
   The small frame in the main image marks the zoomed region.
-* During the run, the sphere moves along a loop and is deformed by the flow (middle image). At the end it is almost
-  back at its start. You can watch the refinement band move with the interface and the mesh coarsen behind it.
+* During the run, the sphere moves along a loop and is deformed by the flow. The video ends after half of the
+  simulation time (output step 29 of 58). You can watch the refinement band move with the interface and the mesh coarsen
+  behind it.
+* The texts at the top ("t8code - adaptive mesh refinement on a hybrid mesh", "Solver loop: AMD GPU (OpenMP offload) -
+  Mesh adaptation: CPU") and below the zoom ("Refinement follows interface") are the same as in the GPU video
+  (option `--labels`).
 
 ### Mesh
 
 <img src="images/element_types.png" width="300" align="right" alt="Mesh colored by element type">
 
-The image on the right shows the same scene colored by element type: hexahedra in blue, prisms in green.
+The image on the right shows the same scene colored by element type (output step 15): hexahedra in blue, prisms in green.
 The tetrahedral part of the coarse mesh is not visible in this view.
 The state file contains this coloring as the hidden pipeline branch `element_type`.
 To show it in the ParaView GUI, hide `mesh_crinkle_clip` and show `element_type`.
@@ -63,27 +68,30 @@ To show it in the ParaView GUI, hide `mesh_crinkle_clip` and show `element_type`
 
 ## Simulation parameters
 
-The data set is called `e8u3l2r5c01t1a10v50`, after the command line options of `t8code_GPU_experiments_advect`:
+The data set is called `e8u3l4r4c01b15t1a10v100`, after the command line options of `t8code_GPU_experiments_advect`:
 
 | Option | Value | Meaning |
 |---|---|---|
 | `-e` | 8 | Coarse mesh: hybrid cube (hexahedra, tetrahedra, prisms) |
 | `-u` | 3 | Flow field number 3 |
-| `-l` | 2 | Minimum refinement level |
-| `-r` | 5 | Number of additional adaptive levels (up to level 7) |
+| `-l` | 4 | Minimum refinement level |
+| `-r` | 4 | Number of additional adaptive levels (up to level 8) |
 | `-C` | 0.1 | CFL number |
+| `-b` | 1.5 | Width of the refinement band around the interface (default 1) |
 | `-T` | 1 | End time |
 | `-a` | 10 | Adapt the mesh every 10 time steps |
-| `-v` | 50 | Write VTK output every 50 time steps (60 output steps) |
+| `-v` | 100 | Write VTK output every 100 time steps (59 output steps `advection_000` … `advection_058`) |
 
-The simulation runs with 20 MPI ranks, one OpenMP thread each.
+The simulation runs with 10 MPI ranks, one OpenMP thread each (`NUM_PROCS` in `run.sh`).
+The video uses output steps 0 … 29, i.e. the first half of the simulation time (`LAST_STEP` in `run.sh`).
 
 ## GPU run on aac7
 
 The advection example was also run on a GPU of the AMD system **aac7**, as follow-up work on the course
 *"Introduction to OpenMP Offloading with AMD GPUs"*, October 27–28, 2026.
-The original video was made from this GPU run (data set `e8u3l3r4c01t1a10v25`). It used 1 MPI rank on 1 GPU and
-different parameters than the case (`-l 3 -r 4 -v 25`, see step 4 below). This run is optional, the case does not need it.
+The earlier GPU video was made from this run (data set `e8u3l3r4c01t1a10v25`). It used 1 MPI rank on 1 GPU and
+different parameters than the case (`-l 3 -r 4 -v 25`, default band width, see step 4 below). This run is optional,
+the case does not need it.
 
 * System: HPE Cray EX with the Cray Programming Environment (CPE). PrgEnv-cray is loaded by default
   (Cray cce compiler, cray-mpich, cray-libsci). Switch toolchains with, e.g., `module load PrgEnv-amd` or
@@ -125,7 +133,7 @@ enabled. All steps run **on a GPU node**, in an interactive session started with
    ./t8code_GPU_experiments_advect -e 8 -u3 -l3 -r4 -C0.1 -T1 -a10 -v25
    ```
 
-   Compared to the case run, this uses minimum level 3 with 4 adaptive levels (also up to level 7) and writes
+   Compared to the case run, this uses minimum level 3 with 4 adaptive levels (up to level 7), band width 1, and writes
    VTK output every 25 time steps (118 output steps `advection_000.pvtu` … `advection_117.pvtu`, about 25 GB).
 
 To make the video from the GPU run, copy the `advection_*.pvtu`/`.vtu` files to a machine with ParaView 5.11 and run
@@ -140,29 +148,33 @@ env -u LD_LIBRARY_PATH -u PYTHONPATH /usr/bin/pvpython --force-offscreen-renderi
 The cutting plane and the camera fit both runs, the sphere follows the same path. Rendering the 118 steps took
 about 5 minutes with 59 processes. The still image is output step 59.
 
-The option `--labels` adds the text overlays of the original video: the title
-"t8code - adaptive mesh refinement on a hybrid mesh", below it "Solver loop: AMD GPU (OpenMP offload) - Mesh adaptation: CPU",
-and "Refinement follows interface" below the zoom. The second line describes the GPU run, therefore `run.sh` (CPU run)
-does not use `--labels`. The texts are set at the top of `postprocessing/advect_scene.py` (`LABEL_*`).
-With `--subtitle=TEXT` the second line is replaced, `--subtitle=` leaves it out (e.g. for CPU runs).
+The option `--labels` adds the text overlays: the title "t8code - adaptive mesh refinement on a hybrid mesh",
+below it "Solver loop: AMD GPU (OpenMP offload) - Mesh adaptation: CPU", and "Refinement follows interface" below the zoom.
+`run.sh` uses the same texts for the CPU run. The texts are set at the top of `postprocessing/advect_scene.py` (`LABEL_*`).
+With `--subtitle=TEXT` the second line is replaced, `--subtitle=` leaves it out.
 
 ## Workflow
 
 The `run.sh` script executes the following main steps:
-* Load the module `t8code/t8code-development-gcc13-mpich`.
-* Configure and build `t8code_GPU_experiments_advect` from `libs/t8code_gpu_advect_experiments-src` without offloading.
-  The project fetches its own t8code version (see `cmake/thirdparty.json` in that repository).
-* Run the simulation with 20 MPI ranks in `output/simulation/` (60 output steps `advection_000.pvtu` … `advection_059.pvtu`, log in `advect.log`).
-* Render one image per output step with ParaView (30 processes in parallel), with a zoom into the refinement band,
-  and encode the video with ffmpeg. Each step is shown for 4 video frames (6 steps per second), so the video is 10 s long.
+* Load the module `t8code/t8code-development-gcc13-mpich`, if the module system has it. Otherwise use the tools from `PATH`.
+* Configure and build `t8code_GPU_experiments_advect` from `libs/t8code_gpu_advect_experiments-src` without offloading
+  (Ninja if available, otherwise Make). The project fetches its own t8code version (see `cmake/thirdparty.json` in that repository).
+* Run the simulation with 10 MPI ranks in `output/simulation/` (59 output steps `advection_000.pvtu` … `advection_058.pvtu`,
+  log in `advect.log`).
+* Render one image for each of the output steps 0 … 29 with ParaView (30 processes in parallel), with the zoom into the
+  refinement band and the texts, and encode the video with ffmpeg. Each step is shown for 4 video frames
+  (6 steps per second), so the video is 5 s long.
 * Write the ParaView state file.
+
+`run.sh` reads these environment variables: `NUM_PROCS` (MPI ranks, default 10), `NUM_JOBS` (build jobs, default
+`nproc`), `NUM_RENDER` (render processes, default 30) and `PVPYTHON` (default `/usr/bin/pvpython`, else `pvpython` from `PATH`).
 
 Results in `output/visualization/`:
 
 | File | Content |
 |---|---|
 | `advect_hybrid_cube.mp4` | The video |
-| `advect_hybrid_cube_still.png` | Still image (output step 30) |
+| `advect_hybrid_cube_still.png` | Still image (output step 15) |
 | `advect_hybrid_cube.pvsm` | ParaView state file (absolute paths to `output/simulation/`) |
 | `frames/` | One PNG per output step |
 
@@ -184,9 +196,9 @@ at the top of the file.
   players do not cover it. A frame with two connecting lines marks the zoomed region in the main image (drawn with Pillow).
   The direction of the zoomed region from the sphere is `INSET_DIRECTION` in `advect_scene.py` (option `--inset-dir=x,y,z`);
   `0.962,0.193,-0.193` gives the lower left of the sphere, as in earlier versions of the video.
+  The state file contains only the main view.
 * `make_video.sh` accepts `--last=N` after the render options to end the video at output step N
   (e.g. `--last=29` for the first half of a run with 59 output steps).
-  The state file contains only the main view.
 * The text overlays (option `--labels`, see [GPU run on aac7](#gpu-run-on-aac7)) use the Roboto font
   (`/usr/share/fonts/truetype/roboto/hinted`). The camera frames the cube so that it stays clear of the texts and the zoom.
 
@@ -199,7 +211,16 @@ at the top of the file.
 
 ### Teamserver modules
 
-`t8code/t8code-development-gcc13-mpich`
+`t8code/t8code-development-gcc13-mpich` (optional, see below)
+
+### Running without the Teamserver modules
+
+The case does not need the Teamserver modules. If the module system or the module is missing, `run.sh` and
+`prepare_on_teamserver.sh` skip it, and `run.sh` takes the tools from `PATH`. It checks for `cmake`, `mpicc`, `mpicxx`,
+`mpirun`, `ffmpeg` and pvpython before it starts. Tested on Ubuntu 24.04 in an empty environment
+(`env -i PATH=/usr/local/bin:/usr/bin:/bin`) with the Ubuntu packages: CMake 3.28, Make (no Ninja), GCC 13.3,
+Open MPI 4.1.6, ffmpeg and ParaView 5.11.2 (build of `t8code_GPU_experiments_advect` and a short simulation run).
+On Ubuntu, the packages are, e.g., `cmake make g++ libopenmpi-dev openmpi-bin ffmpeg paraview fonts-roboto-hinted git`.
 
 ### Other dependencies
 
@@ -210,12 +231,14 @@ at the top of the file.
 * ffmpeg with libx264.
 * Pillow (Python package, included in the Ubuntu ParaView 5.11.2) and the Roboto font for the zoom and the text overlays.
 * MPI version 3.0 or higher, C++ compiler supporting C++20.
-* Disk space: about 12 GB for the simulation output (ASCII VTU) in `output/simulation/`.
+* Disk space: about 69 GB for the simulation output in `output/simulation/` (59 output steps).
+* Memory: each render process needs about 5–6 GB, so the default 30 render processes need about 180 GB.
+  On smaller machines, set `NUM_RENDER` lower (the rendering then takes longer).
 
-### Run time on the Teamserver
+### Run time
 
-About 11 minutes in total: building the project and t8code, about 6.5 minutes for the simulation
-(2918 time steps on 20 ranks) and about 3 minutes for rendering the 60 images.
+Rendering the 30 images with 30 processes took about 6.5 minutes on the Teamserver (3–4.5 minutes per image).
+The run time of the simulation with these parameters has not been measured within the case yet.
 
 ## Contact person:
 
