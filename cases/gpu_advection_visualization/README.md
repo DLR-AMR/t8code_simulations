@@ -42,9 +42,10 @@ is offloaded to the GPU with OpenMP `target`.
   color range of ±0.25 for all time steps.
 * The light surface is the interface $\varphi = 0$ on the removed side of the plane. Therefore the half sphere sits on
   the cut face. Around it you see the band of fine elements (refinement level up to 7) as a ring on the cut face.
-* The window in the lower left corner zooms (10 times) into the refinement band on the cut face at the lower left of
-  the sphere. There, in the hexahedral part of the mesh, the elements become finer towards the interface like a
-  staircase. In the zoom, the sphere is semi-transparent, so the elements behind it stay visible.
+* The window in the lower left corner zooms (10 times) into the refinement band on the cut face at the upper left of
+  the sphere. The elements become finer towards the interface like a staircase. At the start, the zoom shows hexahedra.
+  Later the sphere moves into the prismatic part of the mesh, and the zoom shows prisms.
+  In the zoom, the sphere is semi-transparent, so the elements behind it stay visible.
   The small frame in the main image marks the zoomed region.
 * During the run, the sphere moves along a loop and is deformed by the flow (middle image). At the end it is almost
   back at its start. You can watch the refinement band move with the interface and the mesh coarsen behind it.
@@ -176,11 +177,15 @@ at the top of the file.
   the points, resamples them to a uniform 256³ grid, smooths them with a Gaussian filter
   (σ ≈ 0.013, removes ripples from the jumps at hanging faces) and then extracts $\varphi = 0$.
 * The zoom (option `--inset` of `advect_scene.py` and `make_video.sh`): a second camera looks from the same direction,
-  10 times magnified, at the interface on the cut face at the lower left of the sphere. Its target is the outermost point of
+  10 times magnified, at the interface on the cut face at the upper left of the sphere. Its target is the outermost point of
   the intersection of the interface with the cutting plane, so it follows the sphere and its deformation.
   In the zoom, the sphere is semi-transparent (opacity 0.4) and gets more ambient light, since this side is in the shade.
   The zoom is placed in the lower left of each frame, about 190 px above the bottom edge, so that the controls of video
   players do not cover it. A frame with two connecting lines marks the zoomed region in the main image (drawn with Pillow).
+  The direction of the zoomed region from the sphere is `INSET_DIRECTION` in `advect_scene.py` (option `--inset-dir=x,y,z`);
+  `0.962,0.193,-0.193` gives the lower left of the sphere, as in earlier versions of the video.
+* `make_video.sh` accepts `--last=N` after the render options to end the video at output step N
+  (e.g. `--last=29` for the first half of a run with 59 output steps).
   The state file contains only the main view.
 * The text overlays (option `--labels`, see [GPU run on aac7](#gpu-run-on-aac7)) use the Roboto font
   (`/usr/share/fonts/truetype/roboto/hinted`). The camera frames the cube so that it stays clear of the texts and the zoom.

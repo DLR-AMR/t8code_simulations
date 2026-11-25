@@ -5,7 +5,7 @@ library path, otherwise pvpython picks up libraries from the module system:
 
   env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py state  <data_dir> <out.pvsm>
   env -u LD_LIBRARY_PATH -u PYTHONPATH pvpython advect_scene.py render <data_dir> <out_dir> <first> <last> [stride] [--raytrace]
-      [--inset] [--inset-zoom=Z] [--inset-iso=transparent|curve] [--labels] [--subtitle=TEXT]
+      [--inset] [--inset-zoom=Z] [--inset-iso=transparent|curve] [--inset-dir=x,y,z] [--labels] [--subtitle=TEXT]
 
 'state' writes a ParaView state file for the GUI. 'render' writes one PNG per time step
 (frame_NNN.png) for the steps first, first+stride, ... up to last (inclusive). With --inset each frame also
@@ -56,8 +56,10 @@ INSET_RESOLUTION = [360, 360]
 # Top left corner of the inset border in the frame. The inset stays clear of the bottom of the frame,
 # where video players show their controls.
 INSET_POSITION = [40, 800]
-# Lower left of the sphere in the main image (hexahedral part of the mesh).
-INSET_DIRECTION = [0.962, 0.193, -0.193]
+# Upper left of the sphere in the main image. Later in the run, the sphere moves into the prismatic part
+# of the mesh, so the zoom also shows prisms. (Lower left of the sphere: [0.962, 0.193, -0.193].)
+# Can be changed with --inset-dir=x,y,z.
+INSET_DIRECTION = [0.14, -0.7, 0.7]
 INSET_GAP = 0.005
 # Magnification of the inset relative to the main image (pixel size of a feature in the inset / in the main image).
 INSET_ZOOM = 10.0
@@ -253,7 +255,7 @@ def convex_hull(points):
   return set(hull)
 
 
-def save_inset(view, time, inset_file, zoom=INSET_ZOOM, iso_mode=INSET_ISO_MODE):
+def save_inset(view, time, inset_file, zoom=INSET_ZOOM, iso_mode=INSET_ISO_MODE, direction=INSET_DIRECTION):
   """Render the zoom into the refinement band at the given time into inset_file.
   Returns the corners of the zoomed region in the main image (top left, top right, bottom right, bottom left)."""
   from paraview import servermanager
@@ -274,8 +276,8 @@ def save_inset(view, time, inset_file, zoom=INSET_ZOOM, iso_mode=INSET_ISO_MODE)
   section.UpdatePipeline(time)
   points = servermanager.Fetch(section).GetPoints()
   outermost = builtins.max((points.GetPoint(i) for i in range(points.GetNumberOfPoints())),
-                  key=lambda p: vec_dot(p, INSET_DIRECTION))
-  focal = [outermost[i] + INSET_GAP * INSET_DIRECTION[i] for i in range(3)]
+                  key=lambda p: vec_dot(p, direction))
+  focal = [outermost[i] + INSET_GAP * direction[i] for i in range(3)]
   # Camera basis: back (towards the camera), up and right.
   back = vec_normalized([CAMERA_POSITION[i] - CAMERA_FOCAL_POINT[i] for i in range(3)])
   up = vec_normalized([CAMERA_VIEW_UP[i] - vec_dot(CAMERA_VIEW_UP, back) * back[i] for i in range(3)])
@@ -363,6 +365,7 @@ def main():
   labels = "--labels" in sys.argv
   zoom = INSET_ZOOM
   iso_mode = INSET_ISO_MODE
+  direction = INSET_DIRECTION
   subtitle = None
   for arg in sys.argv:
     if arg.startswith("--subtitle="):
@@ -371,6 +374,8 @@ def main():
       zoom = float(arg.split("=")[1])
     if arg.startswith("--inset-iso="):
       iso_mode = arg.split("=")[1]
+    if arg.startswith("--inset-dir="):
+      direction = vec_normalized([float(x) for x in arg.split("=")[1].split(",")])
   reader, view = build_scene(files, raytrace)
   if mode == "state":
     SaveState(sys.argv[3])
@@ -387,7 +392,7 @@ def main():
     inset_file, region = None, None
     if inset:
       inset_file = os.path.join(out_dir, "inset_%03d.png" % step)
-      region = save_inset(view, times[step], inset_file, zoom, iso_mode)
+      region = save_inset(view, times[step], inset_file, zoom, iso_mode, direction)
     if inset or labels:
       compose_frame(frame_file, inset_file, region, labels, subtitle)
     if inset_file:

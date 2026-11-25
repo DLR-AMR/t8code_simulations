@@ -5,6 +5,7 @@
 # The video has 24 fps. With steps_per_second < 24 each rendered step is shown for several frames.
 # stride > 1 renders only every stride-th time step (e.g. for a quick test).
 # Render options are passed to advect_scene.py, e.g. --inset for the zoom into the refinement band.
+# The option --last=N (not passed on) ends the video at output step N, e.g. after half of the run.
 # Writes <out_dir>/frames/frame_NNN.png, <out_dir>/advect_hybrid_cube.mp4 and
 # <out_dir>/advect_hybrid_cube_still.png (middle rendered step).
 set -e
@@ -14,12 +15,20 @@ out_dir=$2
 workers=${3:-28}
 steps_per_second=${4:-24}
 stride=${5:-1}
-render_options=("${@:6}")
+render_options=()
+last=""
+for option in "${@:6}"; do
+  case $option in
+    --last=*) last=${option#--last=} ;;
+    *) render_options+=("$option") ;;
+  esac
+done
 script_dir=$(cd "$(dirname "$0")" && pwd)
 pvpython="env -u LD_LIBRARY_PATH -u PYTHONPATH LP_NUM_THREADS=4 /usr/bin/pvpython --force-offscreen-rendering"
 
 num_steps=$(ls "$data_dir" | grep -c -E '^advection_[0-9]+\.pvtu$')
-steps=( $(seq 0 $stride $(( num_steps - 1 ))) )
+last=${last:-$(( num_steps - 1 ))}
+steps=( $(seq 0 $stride $last) )
 mkdir -p "$out_dir/frames" "$out_dir/logs"
 rm -f "$out_dir"/frames/frame_*.png
 
