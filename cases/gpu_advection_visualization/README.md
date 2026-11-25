@@ -6,7 +6,7 @@
 
 This case produces a video (and a still image) of t8code's finite-volume advection example running on an
 adaptive hybrid mesh. The example is part of
-[t8code_GPU_experiments](https://github.com/dlr-amr/t8code_GPU_experiments), where the element loop of the solver
+[t8code_GPU_advect_experiments](https://github.com/DLR-AMR/t8code_GPU_advect_experiments), where the element loop of the solver
 is offloaded to the GPU with OpenMP `target`.
 
 * **What is simulated:** A level-set function $\varphi$ (signed distance to a sphere of radius 0.25 around (0.6, 0.6, 0.6))
@@ -90,7 +90,7 @@ different parameters than the case (`-l 3 -r 4 -v 25`, see step 4 below). This r
   `module load PrgEnv-gnu`.
 * GPU nodes: AMD MI300A APUs (`gfx942`), CPU and GPU share the same memory.
 
-To repeat the GPU run, build the same commit of t8code_GPU_experiments (see `dependencies.json`) with offloading
+To repeat the GPU run, build the same commit of t8code_GPU_advect_experiments (see `dependencies.json`) with offloading
 enabled. All steps run **on a GPU node**, in an interactive session started with `srun` (1 node, 1 GPU).
 
 1. Before building, load the new ROCm and use the AMD Clang compilers (needed for offloading):
@@ -105,7 +105,7 @@ enabled. All steps run **on a GPU node**, in an interactive session started with
 2. Build. On a GPU node, the offload architecture (`gfx942`) is detected automatically:
 
    ```bash
-   cmake -S t8code_GPU_experiments -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+   cmake -S t8code_GPU_advect_experiments -B build -GNinja -DCMAKE_BUILD_TYPE=Release
    ninja -C build t8code_GPU_experiments_advect
    ```
 
@@ -150,7 +150,7 @@ With `--subtitle=TEXT` the second line is replaced, `--subtitle=` leaves it out 
 
 The `run.sh` script executes the following main steps:
 * Load the module `t8code/t8code-development-gcc13-mpich`.
-* Configure and build `t8code_GPU_experiments_advect` from `libs/t8code_gpu_experiments-src` without offloading.
+* Configure and build `t8code_GPU_experiments_advect` from `libs/t8code_gpu_advect_experiments-src` without offloading.
   The project fetches its own t8code version (see `cmake/thirdparty.json` in that repository).
 * Run the simulation with 20 MPI ranks in `output/simulation/` (60 output steps `advection_000.pvtu` … `advection_059.pvtu`, log in `advect.log`).
 * Render one image per output step with ParaView (30 processes in parallel), with a zoom into the refinement band,
@@ -194,7 +194,7 @@ at the top of the file.
 
 ### Fetched repositories
 
-* `t8code_GPU_experiments` from `https://github.com/dlr-amr/t8code_GPU_experiments`, which in turn fetches
+* `t8code_GPU_advect_experiments` from `https://github.com/DLR-AMR/t8code_GPU_advect_experiments`, which in turn fetches
   `t8code` from `https://github.com/DLR-AMR/t8code`.
 
 ### Teamserver modules

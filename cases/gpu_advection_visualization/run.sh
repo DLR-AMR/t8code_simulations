@@ -14,8 +14,8 @@ ADVECT_ARGS="-e 8 -u 3 -l 2 -r 5 -C 0.1 -T 1 -a 10 -v 50"
 
 CASE_DIR=$(pwd)
 # FetchContent lower-cases the dependency name in the folder names.
-SRC_DIR=$CASE_DIR/libs/t8code_gpu_experiments-src
-BUILD_DIR=$CASE_DIR/libs/t8code_gpu_experiments-build
+SRC_DIR=$CASE_DIR/libs/t8code_gpu_advect_experiments-src
+BUILD_DIR=$CASE_DIR/libs/t8code_gpu_advect_experiments-build
 SIM_DIR=$CASE_DIR/output/simulation
 VIS_DIR=$CASE_DIR/output/visualization
 
@@ -35,7 +35,7 @@ module load t8code/t8code-development-gcc13-mpich
 set -u
 
 log_msg "\n##################################################"
-log_msg "### Step 1: Build t8code_GPU_experiments (CPU only)"
+log_msg "### Step 1: Build t8code_GPU_advect_experiments (CPU only)"
 log_msg "##################################################"
 
 log_msg "--------------------------------------------------"
